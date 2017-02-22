@@ -29,11 +29,13 @@ class Registry(object):
     def _to_sa(self, table):
 
         dct = {
-            '__tablename__': table.name,
+            '__tablename__': table.get_name(),
             '__table_args__': {'extend_existing': True},
             'ID': table.id,
             'id': Column(Integer, primary_key=True)
         }
+        if table.schema:
+            dct['__table_args__']['schema'] = table.schema
         for col in table.columns:
             dct[col.name] = col.to_sa()
         return type(str(table.name.capitalize()), (self._base,), dct)
@@ -57,16 +59,16 @@ class Registry(object):
     def add_column(self, collection, name, attrs):
         """ add a column to an existing table """
 
-        table = self.get(collection, name)
-        col = DColumn(table_id=table.ID, name=attrs['name'], kind=attrs['kind'])
+        klass = self.get(collection, name)
+        col = DColumn(table_id=klass.ID, name=attrs['name'], kind=attrs['kind'])
         self._session.add(col)
         self._session.commit()
-        sql = 'alter table %s add %s' % (name,
+        sql = 'alter table %s add %s' % (klass.__tablename__,
             CreateColumn(col.to_sa()).compile(self._session.get_bind()))
         con = self._session.get_bind().connect()
         con.execute(sql)
         con.close()
-        self._store_in_cache(self._session.query(DTable).get(table.ID))
+        self._store_in_cache(self._session.query(DTable).get(klass.ID))
         return self.get(collection, name)
 
     def get(self, collection, name):

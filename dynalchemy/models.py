@@ -1,6 +1,6 @@
 
 import sqlalchemy
-from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time, Integer
+from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time, Integer, Boolean
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -19,9 +19,13 @@ class DTable(Base):
     collection = Column(String, nullable=False)
     name = Column(String, nullable=False)
     schema = Column(String)
+    active = Column(Boolean, nullable=False, default=True)
 
     def get_key(self):
         return '%s.%s' % (self.collection, self.name)
+
+    def get_name(self):
+        return '%s_%s' % (self.collection, self.name)
 
 
 class DColumn(Base):
@@ -32,6 +36,7 @@ class DColumn(Base):
     table_id = Column(Integer, ForeignKey('dynalchemy_table.id'))
     name = Column(String, nullable=False)
     kind = Column(String, nullable=False, default='String')
+    active = Column(Boolean, nullable=False, default=True)
 
     table = relationship(DTable, backref='columns')
 

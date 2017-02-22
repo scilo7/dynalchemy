@@ -10,7 +10,7 @@ from dynalchemy import Registry
 
 reg = Registry(Base, session)
 
-reg.add('animal', 'bird', schema='toto', columns=[
+reg.add('animal', 'bird', columns=[
     dict(name='name', kind='string', max=200, null=False),
     dict(name='nb_wings', kind='integer', max=200, null=False),
     dict(name='color', kind='string', max=200, choices=['a', 'b', 'c']),
