@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time
+from sqlalchemy.schema import CreateColumn
 from .models import DColumn, DTable
 
 
@@ -29,6 +30,7 @@ class Registry(object):
 
         dct = {
             '__tablename__': table.name,
+            '__table_args__': {'extend_existing': True},
             'ID': table.id,
             'id': Column(Integer, primary_key=True)
         }
@@ -51,8 +53,6 @@ class Registry(object):
         self._session.commit()
         klass = self._store_in_cache(table)
         klass.__table__.create(bind=self._session.get_bind())
-        print '>>>>', dir(self._base.metadata)
-        print self._base.metadata.tables
 
     def add_column(self, collection, name, attrs):
         """ add a column to an existing table """
@@ -61,8 +61,13 @@ class Registry(object):
         col = DColumn(table_id=table.ID, name=attrs['name'], kind=attrs['kind'])
         self._session.add(col)
         self._session.commit()
-        '''table.__table__.append_column(col.to_sa())'''
+        sql = 'alter table %s add %s' % (name,
+            CreateColumn(col.to_sa()).compile(self._session.get_bind()))
+        con = self._session.get_bind().connect()
+        con.execute(sql)
+        con.close()
         self._store_in_cache(self._session.query(DTable).get(table.ID))
+        return self.get(collection, name)
 
     def get(self, collection, name):
         """ retrieve one table """

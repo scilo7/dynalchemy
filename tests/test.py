@@ -2,7 +2,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-Session = sessionmaker(bind=create_engine('sqlite:///:memory:', echo=False))
+Session = sessionmaker(bind=create_engine('sqlite:///:memory:', echo=True))
 Base = declarative_base()
 session = Session()
 
@@ -26,9 +26,7 @@ print 'birds', session.query(Bird).all()
 pinson = session.query(Bird).filter_by(name='pinson').one()
 print 'pinson color', pinson.color
 
-reg.add_column('animal', 'bird', dict(name='food', kind='string', max=200))
-session.flush()
-
-print dir(pinson)
+Bird = reg.add_column('animal', 'bird', dict(name='food', kind='string', max=200))
 pinson = session.query(Bird).filter_by(name='pinson').one()
-print dir(pinson)
+pinson.food = 'bread'
+session.commit()
