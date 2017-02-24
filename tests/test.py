@@ -30,3 +30,6 @@ Bird = reg.add_column('animal', 'bird', dict(name='food', kind='string', max=200
 pinson = session.query(Bird).filter_by(name='pinson').one()
 pinson.food = 'bread'
 session.commit()
+
+reg.deprecate_column('animal', 'bird', 'food')
+reg.deprecate('animal', 'bird')

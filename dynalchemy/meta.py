@@ -71,12 +71,57 @@ class Registry(object):
         self._store_in_cache(self._session.query(DTable).get(klass.ID))
         return self.get(collection, name)
 
+    def deprecate_column(self, collection, name, colname):
+        """ Mark column colname as deprecated
+            Data are not removed from database
+            Class definition is updated in the Registry
+
+            :param collection: collection name - String
+            :param name: table name - String
+            :param colname: column name - String
+            :return: None
+        """
+
+        col = self._session.query(DColumn).join(DTable)\
+            .filter(DTable.collection == collection)\
+            .filter(DTable.name == name)\
+            .filter(DColumn.name == colname).one()
+        col.active = False
+        self._session.commit()
+        self._store_in_cache(col.table)
+
+    def deprecate(self, collection, name):
+        """ Mark table as deprecated
+            Data are not removed from database
+            Class definition is removed from the Registry
+
+            :param collection: collection name - String
+            :param name: table name - String
+            :return: None
+        """
+
+        table = self._session.query(DTable)\
+            .filter_by(collection=collection, name=name).one()
+
+        table.active = False
+        self._session.commit()
+        del self._cache[table.get_key()]
+
     def get(self, collection, name):
-        """ retrieve one table """
+        """ Retrieve one table
+
+            :param collection: collection name - String
+            :param name: table name - String
+            :return: sqlalchemy table class
+        """
 
         return self._cache['%s.%s' % (collection, name)]
 
     def list(self, collection):
-        """ retrieve a collection of tables """
+        """ Retrieve a collection of tables
+
+            :param collection: collection name - String
+            :return: list of sqlalchemy table classes
+        """
 
         return [self._cache[x] for x in self._cache if x.split('.')[0] == collection]
