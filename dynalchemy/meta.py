@@ -15,6 +15,7 @@ class Registry(object):
         self._created = []
 
     def _create(self, table):
+        """ create mapped sa class from db definition """
 
         dct = {
             '__tablename__': table.get_name(),
@@ -28,12 +29,6 @@ class Registry(object):
             dct[col.name] = col.to_sa()
         klass = type(str(table.get_name()), (self._base,), dct)
         return klass
-
-    def _init_cache(self):
-        """ load all tables from db and create declarative classes """
-
-        for table in self._session.query(DTable).all():
-            self._create(table)
 
     def _create_meta_tables(self):
         """ Create registry tables in DB """
@@ -72,7 +67,7 @@ class Registry(object):
     def deprecate_column(self, collection, name, colname):
         """ Mark column colname as deprecated
             Data are not removed from database
-            Class definition is updated in the Registry
+            Class definition is updated in the db
 
             :param collection: collection name - String
             :param name: table name - String
@@ -88,14 +83,15 @@ class Registry(object):
         self._session.commit()
 
     def _get_dtable(self, collection, name):
-        
-        return self._session.query(DTable)\
-            .filter_by(collection=collection, name=name).one()
+        """ select dtable in db """
+
+        return self._session.query(DTable).filter_by(
+            collection=collection, name=name, active=True).one()
 
     def deprecate(self, collection, name):
         """ Mark table as deprecated
             Data are not removed from database
-            Class definition is removed from the Registry
+            Class definition is removed from metadata
 
             :param collection: collection name - String
             :param name: table name - String
@@ -106,6 +102,7 @@ class Registry(object):
         table.active = False
         self._session.commit()
         self._base.metadata.remove(table)
+        del self._base._decl_class_registry[table.get_name()]
 
     def get(self, collection, name, dtable=None):
         """ Retrieve one table
@@ -129,5 +126,6 @@ class Registry(object):
             :return: list of sqlalchemy table classes
         """
 
-        all = self._session.query(DTable).filter_by(collection=collection).all()
+        all = self._session.query(DTable).filter_by(
+            collection=collection, active=True).all()
         return [self.get(collection, dtable.name, dtable) for dtable in all]

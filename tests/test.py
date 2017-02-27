@@ -40,3 +40,4 @@ session.commit()
 
 reg.deprecate_column('animal', 'bird', 'food')
 reg.deprecate('animal', 'bird')
+print reg.get('animal', 'bird')
