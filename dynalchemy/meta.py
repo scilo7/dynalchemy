@@ -82,6 +82,11 @@ class Registry(object):
         col.active = False
         self._session.commit()
 
+        try:
+            del self._base._decl_class_registry[col.table.get_name()]
+        except:
+            pass
+
     def _get_dtable(self, collection, name):
         """ select dtable in db """
 
@@ -102,7 +107,10 @@ class Registry(object):
         table.active = False
         self._session.commit()
         self._base.metadata.remove(table)
-        del self._base._decl_class_registry[table.get_name()]
+        try:
+            del self._base._decl_class_registry[table.get_name()]
+        except:
+            pass
 
     def get(self, collection, name, dtable=None):
         """ Retrieve one table
