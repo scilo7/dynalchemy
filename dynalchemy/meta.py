@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time
 from sqlalchemy.schema import CreateColumn
+from sqlalchemy.ext.declarative.base import _add_attribute
 from .models import DColumn, DTable
 
 
@@ -11,22 +12,9 @@ class Registry(object):
         self._base = base
         self._session = session
         self._create_meta_tables()
-        self._cache = {}
-        self._init_cache()
+        self._created = []
 
-
-    def _store_in_cache(self, table):
-
-        klass = self._to_sa(table)
-        self._cache[table.get_key()] = klass
-        return klass
-
-    def _init_cache(self):
-
-        for table in self._session.query(DTable).all():
-            self._store_in_cache(self._to_sa(table))
-
-    def _to_sa(self, table):
+    def _create(self, table):
 
         dct = {
             '__tablename__': table.get_name(),
@@ -38,9 +26,17 @@ class Registry(object):
             dct['__table_args__']['schema'] = table.schema
         for col in table.columns:
             dct[col.name] = col.to_sa()
-        return type(str(table.name.capitalize()), (self._base,), dct)
+        klass = type(str(table.get_name()), (self._base,), dct)
+        return klass
+
+    def _init_cache(self):
+        """ load all tables from db and create declarative classes """
+
+        for table in self._session.query(DTable).all():
+            self._create(table)
 
     def _create_meta_tables(self):
+        """ Create registry tables in DB """
 
         DTable.__table__.create(bind=self._session.get_bind())
         DColumn.__table__.create(bind=self._session.get_bind())
@@ -53,8 +49,10 @@ class Registry(object):
         for col in columns:
             table.columns.append(DColumn(name=col['name'], kind=col['kind']))
         self._session.commit()
-        klass = self._store_in_cache(table)
+
+        klass = self._create(table)
         klass.__table__.create(bind=self._session.get_bind())
+        return klass
 
     def add_column(self, collection, name, attrs):
         """ add a column to an existing table """
@@ -63,13 +61,13 @@ class Registry(object):
         col = DColumn(table_id=klass.ID, name=attrs['name'], kind=attrs['kind'])
         self._session.add(col)
         self._session.commit()
-        sql = 'alter table %s add %s' % (klass.__tablename__,
+        sql = 'alter table %s add %s' % (
+            klass.__tablename__,
             CreateColumn(col.to_sa()).compile(self._session.get_bind()))
         con = self._session.get_bind().connect()
         con.execute(sql)
         con.close()
-        self._store_in_cache(self._session.query(DTable).get(klass.ID))
-        return self.get(collection, name)
+        _add_attribute(klass, name, col.to_sa())
 
     def deprecate_column(self, collection, name, colname):
         """ Mark column colname as deprecated
@@ -88,7 +86,11 @@ class Registry(object):
             .filter(DColumn.name == colname).one()
         col.active = False
         self._session.commit()
-        self._store_in_cache(col.table)
+
+    def _get_dtable(self, collection, name):
+        
+        return self._session.query(DTable)\
+            .filter_by(collection=collection, name=name).one()
 
     def deprecate(self, collection, name):
         """ Mark table as deprecated
@@ -100,22 +102,25 @@ class Registry(object):
             :return: None
         """
 
-        table = self._session.query(DTable)\
-            .filter_by(collection=collection, name=name).one()
-
+        table = self._get_dtable(collection, name)
         table.active = False
         self._session.commit()
-        del self._cache[table.get_key()]
+        self._base.metadata.remove(table)
 
-    def get(self, collection, name):
+    def get(self, collection, name, dtable=None):
         """ Retrieve one table
 
             :param collection: collection name - String
             :param name: table name - String
+            :param dtable: dtable instance already loaded
             :return: sqlalchemy table class
         """
 
-        return self._cache['%s.%s' % (collection, name)]
+        key = '%s__%s' % (collection, name)
+        try:
+            return self._base._decl_class_registry[key]
+        except:
+            return self._create(dtable or self._get_dtable(collection, name))
 
     def list(self, collection):
         """ Retrieve a collection of tables
@@ -124,4 +129,5 @@ class Registry(object):
             :return: list of sqlalchemy table classes
         """
 
-        return [self._cache[x] for x in self._cache if x.split('.')[0] == collection]
+        all = self._session.query(DTable).filter_by(collection=collection).all()
+        return [self.get(collection, dtable.name, dtable) for dtable in all]

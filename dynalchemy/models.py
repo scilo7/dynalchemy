@@ -21,11 +21,8 @@ class DTable(Base):
     schema = Column(String)
     active = Column(Boolean, nullable=False, default=True)
 
-    def get_key(self):
-        return '%s.%s' % (self.collection, self.name)
-
     def get_name(self):
-        return '%s_%s' % (self.collection, self.name)
+        return '%s__%s' % (self.collection, self.name)
 
 
 class DColumn(Base):
