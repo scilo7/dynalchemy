@@ -12,7 +12,6 @@ class Registry(object):
         self._base = base
         self._session = session
         self._create_meta_tables()
-        self._created = []
 
     def _create(self, table):
         """ create mapped sa class from db definition """
@@ -48,6 +47,17 @@ class Registry(object):
         klass = self._create(table)
         klass.__table__.create(bind=self._session.get_bind())
         return klass
+
+    def add_from_config(self, config):
+        """ Utility to add from parameters passed in a dict
+            :param config: dict containing at least collection,
+                name and columns keys
+        """
+        for key in ('collection', 'name', 'columns'):
+            assert key in config, 'missing config "{}"'.format(key)
+        return self.add(
+            config['collection'], config['name'],
+            columns=config['columns'], schema=config['schema'])
 
     def add_column(self, collection, name, attrs):
         """ add a column to an existing table """
@@ -124,7 +134,7 @@ class Registry(object):
         key = '%s__%s' % (collection, name)
         try:
             return self._base._decl_class_registry[key]
-        except:
+        except KeyError:
             return self._create(dtable or self._get_dtable(collection, name))
 
     def list(self, collection):
@@ -134,6 +144,6 @@ class Registry(object):
             :return: list of sqlalchemy table classes
         """
 
-        all = self._session.query(DTable).filter_by(
+        all_tables = self._session.query(DTable).filter_by(
             collection=collection, active=True).all()
-        return [self.get(collection, dtable.name, dtable) for dtable in all]
+        return [self.get(collection, dtable.name, dtable) for dtable in all_tables]
