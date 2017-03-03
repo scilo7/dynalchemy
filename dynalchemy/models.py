@@ -1,5 +1,6 @@
 
 import sqlalchemy
+
 from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time, Integer, Boolean
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.declarative import declarative_base
@@ -7,6 +8,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import joinedload
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
+from marshmallow import Schema, fields, post_load
 
 Base = declarative_base()
 
@@ -27,6 +29,23 @@ class DTable(Base):
 
 class DColumn(Base):
 
+    VALID_TYPES = [
+        'BigInteger',
+        'Binary',
+        'Boolean',
+        'Date',
+        'DateTime',
+        'Enum',
+        'Float',
+        'Integer',
+        'LargeBinary',
+        'Numeric',
+        'SmallInteger',
+        'String',
+        'Text',
+        'Time'
+    ]
+
     __tablename__ = 'dynalchemy_column'
 
     id = Column(Integer, primary_key=True)
@@ -39,8 +58,9 @@ class DColumn(Base):
 
     def _get_type(self):
 
-        return getattr(sqlalchemy, self.kind.capitalize())
+        return getattr(sqlalchemy, self.kind)
 
     def to_sa(self):
+        """ convert to sa object Column """
 
         return Column(self.name, self._get_type())

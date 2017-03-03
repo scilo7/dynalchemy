@@ -60,7 +60,11 @@ class Registry(object):
             columns=config['columns'], schema=config['schema'])
 
     def add_column(self, collection, name, attrs):
-        """ add a column to an existing table """
+        """ Add a column to an existing table:
+            - insert it in db (DCcolumn)
+            - add column to the dynamic table in db
+            - append the attribute to the base class
+        """
 
         klass = self.get(collection, name)
         col = DColumn(table_id=klass.ID, name=attrs['name'], kind=attrs['kind'])
