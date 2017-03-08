@@ -57,7 +57,7 @@ class DColumn(Base):
     mandatory = Column(Boolean, nullable=False, default=False)
     default = Column(String)
     length = Column(Integer)
-    enums = Column(PickleType)
+    choices = Column(PickleType)
     precision = Column(Integer)
 
     table = relationship(DTable, backref='columns')
@@ -73,7 +73,7 @@ class DColumn(Base):
         if self.kind == 'String' and self.length:
             kind = kind(self.length)
         if self.kind == 'Enum':
-            kind = kind(self.enums)
+            kind = kind(*self.choices)
         return kind
 
     def _get_default(self):
@@ -84,7 +84,10 @@ class DColumn(Base):
         elif self.kind in ('Float', 'Numeric'):
             return float(self.default)
         elif self.kind == 'Boolean':
-            return bool(self.default)
+            if self.default in ('t', 'true', 'y', 'on', '1'):
+                return True
+            else:
+                return False
         else:
             return self.default
 

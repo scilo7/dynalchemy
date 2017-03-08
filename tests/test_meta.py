@@ -13,10 +13,8 @@ class TestRegistry(unittest.TestCase):
 
     def setUp(self):
         engine = create_engine('sqlite:///:memory:', echo=False)
-        Session = sessionmaker(bind=engine)
         self.base = declarative_base(bind=engine)
-        session = Session()
-        self.reg = Registry(self.base, session)
+        self.reg = Registry(self.base, sessionmaker(bind=engine)())
 
     def tearDown(self):
         self.base.metadata.drop_all()
