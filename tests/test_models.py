@@ -17,6 +17,11 @@ class TestDColumn(unittest.TestCase):
         self.assertEqual(kind.__class__, String)
         self.assertEqual(kind.length, 25)
 
+    def test_get_default(self):
+
+        col = DColumn(name='bob', kind='Integer', default='100')
+        self.assertEqual(col._get_default(), 100)
+
 
 if __name__ == '__main__':
     unittest.main()

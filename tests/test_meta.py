@@ -11,12 +11,15 @@ from dynalchemy.models import DTable, DColumn
 
 class TestRegistry(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        Session = sessionmaker(bind=create_engine('sqlite:///:memory:', echo=False))
-        Base = declarative_base()
+    def setUp(self):
+        engine = create_engine('sqlite:///:memory:', echo=False)
+        Session = sessionmaker(bind=engine)
+        self.base = declarative_base(bind=engine)
         session = Session()
-        cls.reg = Registry(Base, session)
+        self.reg = Registry(self.base, session)
+
+    def tearDown(self):
+        self.base.metadata.drop_all()
 
     def _add(self, collection, name):
         return self.reg.add(collection, name, columns=[
@@ -27,14 +30,15 @@ class TestRegistry(unittest.TestCase):
 
     def test_create(self):
 
-        klass = self.reg._create(DTable(
-            collection='animal',
-            name='bird',
-            schema='woot',
-            columns=[
-                DColumn(name='one', kind='String'),
-                DColumn('two', kind='Integer')
-            ])
+        klass = self.reg._create(
+            DTable(
+                collection='animal',
+                name='bird',
+                columns=[
+                    DColumn(name='one', kind='String'),
+                    DColumn(name='two', kind='Integer')
+                ]
+            )
         )
         self.assertEqual(klass.__tablename__, 'animal__bird')
 

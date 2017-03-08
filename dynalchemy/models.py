@@ -62,11 +62,7 @@ class DColumn(Base):
 
     table = relationship(DTable, backref='columns')
 
-    def __init__(self, *args, **kwargs):
-        super(DColumn, self).__init__(args, kwargs)
-        self._validate_state()
-
-    def _validate_state(self):
+    def validate(self):
         """ ensure attributes correctness """
         pass
 
@@ -103,7 +99,6 @@ class DColumn(Base):
     def to_sa(self):
         """ convert to sa object Column """
 
-        self._validate()
         return Column(self.name, self._get_type(), **self._get_args())
 
     @classmethod

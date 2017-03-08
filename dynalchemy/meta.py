@@ -40,8 +40,11 @@ class Registry(object):
 
         table = DTable(collection=collection, name=name, schema=schema)
         self._session.add(table)
-        for col in columns:
-            table.columns.append(DColumn(name=col['name'], kind=col['kind']))
+        if columns:
+            for col in columns:
+                col = DColumn(name=col['name'], kind=col['kind'])
+                col.validate()
+                table.columns.append(col)
         self._session.commit()
 
         klass = self._create(table)
@@ -68,6 +71,7 @@ class Registry(object):
 
         klass = self.get(collection, name)
         col = DColumn(table_id=klass.ID, name=attrs['name'], kind=attrs['kind'])
+        col.validate()
         self._session.add(col)
         self._session.commit()
         sql = 'alter table %s add %s' % (
