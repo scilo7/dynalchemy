@@ -110,7 +110,9 @@ class DColumn(Base):
 
         fields = [
             dict(name='name', mandatory=True),
-            dict(name='kind', mandatory=True)]
+            dict(name='kind', mandatory=True),
+            dict(name='mandatory', mandatory=False),
+            dict(name='default', mandatory=False)]
         fields += DColumn.COLUMN_TYPES[kind]
         return fields
 

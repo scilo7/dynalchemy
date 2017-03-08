@@ -54,6 +54,12 @@ class TestDColumn(unittest.TestCase):
         args = DColumn(kind='Float', default='1')._get_args()
         self.assertEqual(args, {'default': 1.0})
 
+    def test_get_serialization_fields(self):
+        fields = DColumn.get_serialization_fields('String')
+        print fields
+        self.assertEqual(len(fields), 5)
+        self.assertEqual(fields[0]['name'], 'name')
+
 
 
 if __name__ == '__main__':
