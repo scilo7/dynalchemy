@@ -46,7 +46,7 @@ class TestRegistry(unittest.TestCase):
     def test_add_same_collection(self):
 
         Bird = self.reg.add('animal', 'bird')
-        Bird = self.reg.add('animal', 'bird2')
+        Bird2 = self.reg.add('animal', 'bird2')
         self.assertEqual(Bird.__tablename__, 'animal__bird')
         self.assertEqual(Bird2.__tablename__, 'animal__bird2')
 

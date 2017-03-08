@@ -1,14 +1,14 @@
 
 import sqlalchemy
 
-from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time, Integer, Boolean
+from sqlalchemy import Column, Integer, ForeignKey, Float, String
+from sqlalchemy import DateTime, Time, Integer, Boolean, PickleType
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import joinedload
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-from marshmallow import Schema, fields, post_load
 
 Base = declarative_base()
 
@@ -29,22 +29,23 @@ class DTable(Base):
 
 class DColumn(Base):
 
-    VALID_TYPES = [
-        'BigInteger',
-        'Binary',
-        'Boolean',
-        'Date',
-        'DateTime',
-        'Enum',
-        'Float',
-        'Integer',
-        'LargeBinary',
-        'Numeric',
-        'SmallInteger',
-        'String',
-        'Text',
-        'Time'
-    ]
+    COLUMN_TYPES = {
+        # accepted types & their construction args
+        'BigInteger': [],
+        'Binary': [],
+        'Boolean': [],
+        'Date': [],
+        'DateTime': [],
+        'Enum': [dict(name='enums', mandatory=True)],
+        'Float': [dict(name='precision', mandatory=False)],
+        'Integer': [],
+        'LargeBinary': [dict(name='length', mandatory=False)],
+        'Numeric': [],
+        'SmallInteger': [],
+        'String':  [dict(name='length', mandatory=False)],
+        'Text':  [dict(name='length', mandatory=False)],
+        'Time': []
+    }
 
     __tablename__ = 'dynalchemy_column'
 
@@ -53,14 +54,72 @@ class DColumn(Base):
     name = Column(String, nullable=False)
     kind = Column(String, nullable=False, default='String')
     active = Column(Boolean, nullable=False, default=True)
+    mandatory = Column(Boolean, nullable=False, default=False)
+    default = Column(String)
+    length = Column(Integer)
+    enums = Column(PickleType)
+    precision = Column(Integer)
 
     table = relationship(DTable, backref='columns')
 
-    def _get_type(self):
+    def __init__(self, *args, **kwargs):
+        super(DColumn, self).__init__(args, kwargs)
+        self._validate_state()
 
-        return getattr(sqlalchemy, self.kind)
+    def _validate_state(self):
+        """ ensure attributes correctness """
+        pass
+
+    def _get_type(self):
+        """ sqlalchemy type for the column """
+
+        kind = getattr(sqlalchemy, self.kind)
+        if self.kind == 'String' and self.length:
+            kind = kind(self.length)
+        if self.kind == 'Enum':
+            kind = kind(self.enums)
+        return kind
+
+    def _get_default(self):
+        """ convert default to the correct type """
+
+        if self.kind in ('BigInteger', 'Integer', 'SmallInteger'):
+            return int(self.default)
+        elif self.kind in ('Float', 'Numeric'):
+            return float(self.default)
+        elif self.kind == 'Boolean':
+            return bool(self.default)
+        else:
+            return self.default
+
+    def _get_args(self):
+        """ sqlalchmey extra args for column creation """
+
+        args = {}
+        if self.default is not None:
+            args['default'] = self._get_default()
+        return args
 
     def to_sa(self):
         """ convert to sa object Column """
 
-        return Column(self.name, self._get_type())
+        self._validate()
+        return Column(self.name, self._get_type(), **self._get_args())
+
+    @classmethod
+    def get_serialization_fields(cls, kind):
+        """ List fields availables for Column declaration of one type """
+
+        fields = [
+            dict(name='name', mandatory=True),
+            dict(name='kind', mandatory=True)]
+        fields += DColumn.COLUMN_TYPES[kind]
+        return fields
+
+    def serialize(self):
+        """ Convert to basic dict for json """
+
+        fields = DColumn.get_serialization_fields(self.kind)
+        for field in fields:
+            field['value'] = getattr(self, field['name'])
+        return fields
