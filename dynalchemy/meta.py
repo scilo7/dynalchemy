@@ -38,6 +38,14 @@ class Registry(object):
     def add(self, collection, name, columns=None, schema=None):
         """ add a new table """
 
+        try:
+            old = self._session.query(DTable).filter_by(
+                collection=collection, name=name, schema=schema).one()
+            if old:
+                raise TableExistException('table %s already defined' % name)
+        except:
+            # not found: ok
+            pass
         table = DTable(collection=collection, name=name, schema=schema)
         self._session.add(table)
         if columns:
@@ -56,11 +64,12 @@ class Registry(object):
             :param config: dict containing at least collection,
                 name and columns keys
         """
-        for key in ('collection', 'name', 'columns'):
+        for key in ('collection', 'name'):
             assert key in config, 'missing config "{}"'.format(key)
         return self.add(
             config['collection'], config['name'],
-            columns=config['columns'], schema=config['schema'])
+            columns=config.get('columns', []),
+            schema=config.get('schema', None))
 
     def add_column(self, collection, name, attrs):
         """ Add a column to an existing table:
@@ -101,6 +110,7 @@ class Registry(object):
         self._session.commit()
 
         try:
+            # remove from declarative registry
             del self._base._decl_class_registry[col.table.get_name()]
         except:
             pass

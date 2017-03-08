@@ -1,5 +1,6 @@
-from sqlalchemy import Integer, String, Enum
+from sqlalchemy import Integer, String, Enum, Float
 import unittest
+import sqlalchemy
 
 from dynalchemy.models import DTable, DColumn
 
@@ -56,10 +57,24 @@ class TestDColumn(unittest.TestCase):
 
     def test_get_serialization_fields(self):
         fields = DColumn.get_serialization_fields('String')
-        print fields
         self.assertEqual(len(fields), 5)
         self.assertEqual(fields[0]['name'], 'name')
+        self.assertEqual(fields[1]['name'], 'kind')
 
+    def test_serialize(self):
+
+        col = DColumn(name='bob', kind='Float', default='1')
+        fields = col.serialize()
+        self.assertEqual(len(fields), 5)
+        self.assertEqual(fields[0]['name'], 'name')
+        self.assertEqual(fields[0]['value'], 'bob')
+
+    def test_to_sa(self):
+
+        col = DColumn(name='bob', kind='Float', default='1').to_sa()
+        self.assertEqual(col.name, 'bob')
+        print '>>', type(col.type)
+        self.assertEqual(col.type, sqlalchemy.sql.sqltypes.Float)
 
 
 if __name__ == '__main__':

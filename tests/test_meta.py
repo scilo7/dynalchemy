@@ -39,6 +39,8 @@ class TestRegistry(unittest.TestCase):
             )
         )
         self.assertEqual(klass.__tablename__, 'animal__bird')
+        self.assertTrue(hasattr(klass, 'id'))
+        self.assertTrue(hasattr(klass, 'one'))
 
     def test_add(self):
 
@@ -52,6 +54,25 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(Bird.__tablename__, 'animal__bird')
         self.assertEqual(Bird2.__tablename__, 'animal__bird2')
 
+    def test_add_from_config(self):
+
+        Bird = self.reg.add_from_config({
+            'collection': 'animal',
+            'name': 'bird'
+        })
+        self.assertEqual(Bird.__tablename__, 'animal__bird')
+
+    def test_get(self):
+
+        Bird = self.reg.add('animal', 'bird')
+        self.assertEqual(self.reg.get('animal', 'bird'), Bird)
+
+    def test_list(self):
+        
+        Bird = self.reg.add('animal', 'bird')
+        Bird2 = self.reg.add('animal', 'bird2')
+        Bird3 = self.reg.add('zoo', 'bird')
+        self.assertEqual(self.reg.list('animal'), [Bird, Bird2])
 
 
 if __name__ == '__main__':
