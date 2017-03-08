@@ -19,38 +19,21 @@ class TestRegistry(unittest.TestCase):
     def tearDown(self):
         self.base.metadata.drop_all()
 
-    def _add(self, collection, name):
+    def _get_class(self, collection='animal', name='bird'):
         return self.reg.add(collection, name, columns=[
             dict(name='name', kind='String', max=200, null=False),
             dict(name='nb_wings', kind='Integer', null=False),
             dict(name='color', kind='String', max=200),
         ])
 
-    def test_create(self):
-
-        klass = self.reg._create(
-            DTable(
-                collection='animal',
-                name='bird',
-                columns=[
-                    DColumn(name='one', kind='String'),
-                    DColumn(name='two', kind='Integer')
-                ]
-            )
-        )
-        self.assertEqual(klass.__tablename__, 'animal__bird')
-        self.assertTrue(hasattr(klass, 'id'))
-        self.assertTrue(hasattr(klass, 'one'))
-
     def test_add(self):
 
-        Bird = self.reg.add('animal', 'bird')
-        self.assertEqual(Bird.__tablename__, 'animal__bird')
+        self.assertEqual(self._get_class().__tablename__, 'animal__bird')
 
     def test_add_same_collection(self):
 
-        Bird = self.reg.add('animal', 'bird')
-        Bird2 = self.reg.add('animal', 'bird2')
+        Bird = self._get_class()
+        Bird2 = self._get_class(name='bird2')
         self.assertEqual(Bird.__tablename__, 'animal__bird')
         self.assertEqual(Bird2.__tablename__, 'animal__bird2')
 
@@ -64,14 +47,14 @@ class TestRegistry(unittest.TestCase):
 
     def test_get(self):
 
-        Bird = self.reg.add('animal', 'bird')
+        Bird = self._get_class()
         self.assertEqual(self.reg.get('animal', 'bird'), Bird)
 
     def test_list(self):
 
-        Bird = self.reg.add('animal', 'bird')
-        Bird2 = self.reg.add('animal', 'bird2')
-        Bird3 = self.reg.add('zoo', 'bird')
+        Bird = self._get_class()
+        Bird2 = self._get_class(name='bird2')
+        Bird3 = self._get_class(collection='zoo')
         self.assertEqual(self.reg.list('animal'), [Bird, Bird2])
 
 

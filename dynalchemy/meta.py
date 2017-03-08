@@ -4,6 +4,10 @@ from sqlalchemy.ext.declarative.base import _add_attribute
 from .models import DColumn, DTable
 
 
+class TableExistException(Exception):
+    pass
+
+
 class Registry(object):
     """ storage for dynamically created classes """
 
@@ -12,22 +16,6 @@ class Registry(object):
         self._base = base
         self._session = session
         self._create_meta_tables()
-
-    def _create(self, table):
-        """ create mapped sa class from db definition """
-
-        dct = {
-            '__tablename__': table.get_name(),
-            '__table_args__': {'extend_existing': True},
-            'ID': table.id,
-            'id': Column(Integer, primary_key=True)
-        }
-        if table.schema:
-            dct['__table_args__']['schema'] = table.schema
-        for col in table.columns:
-            dct[col.name] = col.to_sa()
-        klass = type(str(table.get_name()), (self._base,), dct)
-        return klass
 
     def _create_meta_tables(self):
         """ Create registry tables in DB """
@@ -55,7 +43,7 @@ class Registry(object):
                 table.columns.append(col)
         self._session.commit()
 
-        klass = self._create(table)
+        klass = table.to_sa(self._base)
         klass.__table__.create(bind=self._session.get_bind())
         return klass
 

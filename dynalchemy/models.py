@@ -26,7 +26,25 @@ class DTable(Base):
     active = Column(Boolean, nullable=False, default=True)
 
     def get_name(self):
+        """ a unique name for this table """
+
         return '%s__%s' % (self.collection, self.name)
+
+    def to_sa(self, base):
+        """ create mapped sa class from db definition """
+
+        dct = {
+            '__tablename__': self.get_name(),
+            '__table_args__': {'extend_existing': True},
+            'ID': self.id,
+            'id': Column(Integer, primary_key=True)
+        }
+        if self.schema:
+            dct['__table_args__']['schema'] = self.schema
+        for col in self.columns:
+            dct[col.name] = col.to_sa()
+        klass = type(str(self.get_name()), (base,), dct)
+        return klass
 
 
 class DColumn(Base):
