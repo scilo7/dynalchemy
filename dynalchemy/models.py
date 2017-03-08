@@ -10,6 +10,8 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 
+# this Base is distinct from the application one
+# no need to mess the app with those classes
 Base = declarative_base()
 
 
@@ -63,7 +65,9 @@ class DColumn(Base):
     table = relationship(DTable, backref='columns')
 
     def validate(self):
-        """ ensure attributes correctness """
+        """ Ensure attributes correctness
+            Should check type/value for default, length, choices...
+        """
         pass
 
     def _get_type(self):

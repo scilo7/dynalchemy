@@ -73,7 +73,6 @@ class TestDColumn(unittest.TestCase):
 
         col = DColumn(name='bob', kind='Float', default='1').to_sa()
         self.assertEqual(col.name, 'bob')
-        print '>>', type(col.type)
         self.assertEqual(col.type, sqlalchemy.sql.sqltypes.Float)
 
 

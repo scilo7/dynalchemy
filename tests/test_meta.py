@@ -68,7 +68,7 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(self.reg.get('animal', 'bird'), Bird)
 
     def test_list(self):
-        
+
         Bird = self.reg.add('animal', 'bird')
         Bird2 = self.reg.add('animal', 'bird2')
         Bird3 = self.reg.add('zoo', 'bird')
