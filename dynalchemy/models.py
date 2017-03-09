@@ -1,13 +1,9 @@
 
 import sqlalchemy
 
-from sqlalchemy import Column, Integer, ForeignKey, Float, String
-from sqlalchemy import DateTime, Time, Integer, Boolean, PickleType
-from sqlalchemy.ext.declarative import DeclarativeMeta
+from sqlalchemy import Column, Integer, ForeignKey, String
+from sqlalchemy import Boolean, PickleType
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm import joinedload
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 
 # this Base is distinct from the application one
