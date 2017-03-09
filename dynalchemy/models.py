@@ -30,7 +30,7 @@ class DTable(Base):
 
         return '%s__%s' % (self.collection, self.name)
 
-    def to_sa(self, base):
+    def to_sa(self, registry):
         """ create mapped sa class from db definition """
 
         dct = {
@@ -42,8 +42,10 @@ class DTable(Base):
         if self.schema:
             dct['__table_args__']['schema'] = self.schema
         for col in self.columns:
-            dct[col.name] = col.to_sa()
-        klass = type(str(self.get_name()), (base,), dct)
+            dct[col.get_name()] = col.to_sa()
+            if col.is_relationship():
+                dct[col.name] = col.get_sa_relationship()
+        klass = type(str(self.get_name()), (registry._base,), dct)
         return klass
 
 
@@ -79,6 +81,8 @@ class DColumn(Base):
     length = Column(Integer)
     choices = Column(PickleType)
     precision = Column(Integer)
+    parent_relationship = Column(PickleType)
+    many_relationship = Column(PickleType)
 
     table = relationship(DTable, backref='columns')
 
@@ -87,6 +91,27 @@ class DColumn(Base):
             Should check type/value for default, length, choices...
         """
         pass
+
+    def get_name(self):
+
+        if self.is_relationship():
+            return '%s__fk' % self.name
+        else:
+            return self.name
+
+    def is_relationship(self):
+        """ True if the column is a relationship """
+
+        return self.parent_relationship or self.many_relationship
+
+    def get_sa_relationship(self, registry):
+        """ return sa Relationship """
+
+        parent = registry.get(
+            self.parent_relationship['collection'],
+            self.parent_relationship['name'])
+        return relationship(
+            parent, backref=self.parent_relationship.get('backref'))
 
     def _get_type(self):
         """ sqlalchemy type for the column """

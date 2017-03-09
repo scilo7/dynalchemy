@@ -43,7 +43,7 @@ class Registry(object):
                 table.columns.append(col)
         self._session.commit()
 
-        klass = table.to_sa(self._base)
+        klass = table.to_sa(self)
         klass.__table__.create(bind=self._session.get_bind())
         return klass
 
@@ -129,7 +129,7 @@ class Registry(object):
             pass
 
     def get(self, collection, name, dtable=None):
-        """ Retrieve one table
+        """ Retrieve one mapped sqlalchemy class
 
             :param collection: collection name - String
             :param name: table name - String

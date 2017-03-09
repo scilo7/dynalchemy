@@ -1,4 +1,9 @@
 from sqlalchemy import Integer, String, Enum, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from dynalchemy import Registry
+
 import unittest
 import sqlalchemy
 
@@ -75,10 +80,73 @@ class TestDColumn(unittest.TestCase):
         self.assertEqual(col.name, 'bob')
         #self.assertEqual(col.type, sqlalchemy.sql.sqltypes.Float)
 
+    def test_get_name_fk(self):
 
-'''class TestDColumn(unittest.TestCase):
+        col = DColumn(name='rel', kind='Integer',
+            parent_relationship={'collection': 'animal'})
+        self.assertEqual(col.get_name(), 'rel__fk')
 
-    def test_to_sa(self):
+    def test_get_name(self):
+
+        col = DColumn(name='rel', kind='Integer')
+        self.assertEqual(col.get_name(), 'rel')
+
+    def test_is_relationship(self):
+
+        col = DColumn(name='rel', kind='Integer',
+            parent_relationship={'collection': 'animal'})
+        self.assertTrue(col.is_relationship())
+
+    def test_get_sa_relationship(self):
+
+        engine = create_engine('sqlite:///:memory:', echo=False)
+        base = declarative_base(bind=engine)
+        reg = Registry(base, sessionmaker(bind=engine)())
+
+        Bird = reg.add('animal', 'bird')
+        rel = DColumn(
+            name='rel', kind='Integer',
+            parent_relationship={'collection': 'animal', 'name': 'bird', 'backref': 'birds'})\
+            .get_sa_relationship(reg)
+        self.assertEqual(rel.backref, 'birds')
+
+
+class TestDTable(unittest.TestCase):
+
+    def test_relationship(self):
+
+        engine = create_engine('sqlite:///:memory:', echo=False)
+        base = declarative_base(bind=engine)
+        session = sessionmaker(bind=engine)()
+        reg = Registry(base, session)
+
+        Bird = reg.add('animal', 'bird')
+        Truc = reg.add(
+            'machin', 'truc',
+            columns=[dict(
+                name='bird',
+                kind='Integer',
+                parent_relationship={
+                    'collection': 'animal', 'name': 'bird', 'backref': 'trucs'}
+            )]
+        )
+        b1 = Bird()
+        session.add(b1)
+        session.commit()
+        print '>>>id', b1.id
+        t = Truc(bird__pk=1)
+        session.add(t)
+        session.commit()
+        session.expunge_all()
+        x = session.query(Truc).all()
+        print x
+
+
+if __name__ == '__main__':
+    unittest.main()
+
+
+'''    def test_to_sa(self):
 
         klass = self.reg._create(
             DTable(
@@ -93,7 +161,3 @@ class TestDColumn(unittest.TestCase):
         self.assertEqual(klass.__tablename__, 'animal__bird')
         self.assertTrue(hasattr(klass, 'id'))
         self.assertTrue(hasattr(klass, 'one'))'''
-
-
-if __name__ == '__main__':
-    unittest.main()
