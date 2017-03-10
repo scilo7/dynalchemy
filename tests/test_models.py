@@ -113,33 +113,40 @@ class TestDColumn(unittest.TestCase):
 
 class TestDTable(unittest.TestCase):
 
-    def test_relationship(self):
+    def test_relationship_parent(self):
 
         engine = create_engine('sqlite:///:memory:', echo=False)
         base = declarative_base(bind=engine)
         session = sessionmaker(bind=engine)()
         reg = Registry(base, session)
 
-        Bird = reg.add('animal', 'bird')
-        Truc = reg.add(
-            'machin', 'truc',
-            columns=[dict(
-                name='bird',
-                kind='Integer',
-                parent_relationship={
-                    'collection': 'animal', 'name': 'bird', 'backref': 'trucs'}
+        Bird = reg.add('animal', 'bird', columns=[
+            dict(name='name', kind='String'),
+            dict(name='nb_wings', kind='Integer'),
+            dict(name='color', kind='String')
+        ])
+        Food = reg.add(
+            'food', 'food',
+            columns=[
+                dict(name='name', kind='String'),
+                dict(
+                    name='predator',
+                    kind='Integer',
+                    parent_relationship={
+                        'collection': 'animal', 'name': 'bird', 'backref': 'predators'}
             )]
         )
-        b1 = Bird()
-        session.add(b1)
+        pinson = Bird(name='pinson', color='red')
+        session.add(pinson)
         session.commit()
-        print '>>>id', b1.id
-        t = Truc(bird__pk=1)
-        session.add(t)
+        corn = Food(name='corn', predator=pinson)
+        # or corn = Food(bird__fk=pinson.id)
+        # session.add(corn)
         session.commit()
         session.expunge_all()
-        x = session.query(Truc).all()
-        print x
+
+        corn = session.query(Food).filter_by(name='corn').one()
+        self.assertEqual(corn.predator.name, 'pinson')
 
 
 if __name__ == '__main__':

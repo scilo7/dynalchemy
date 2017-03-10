@@ -40,7 +40,8 @@ class DTable(Base):
         for col in self.columns:
             dct[col.get_name()] = col.to_sa()
             if col.is_relationship():
-                dct[col.name] = col.get_sa_relationship()
+                dct[col.name] = col.get_sa_relationship(registry)
+
         klass = type(str(self.get_name()), (registry._base,), dct)
         return klass
 
@@ -145,7 +146,13 @@ class DColumn(Base):
     def to_sa(self):
         """ convert to sa object Column """
 
-        return Column(self.name, self._get_type(), **self._get_args())
+        args = self._get_args()
+        kind = self._get_type()
+        if self.is_relationship():
+            fkey = '%(collection)s__%(name)s.id' % self.parent_relationship
+            return Column(self.name, kind, ForeignKey(fkey), **args)
+        else:
+            return Column(self.name, kind, **args)
 
     @classmethod
     def get_serialization_fields(cls, kind):

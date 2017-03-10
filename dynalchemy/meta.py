@@ -37,10 +37,10 @@ class Registry(object):
         table = DTable(collection=collection, name=name, schema=schema)
         self._session.add(table)
         if columns:
-            for col in columns:
-                col = DColumn(name=col['name'], kind=col['kind'])
-                col.validate()
-                table.columns.append(col)
+            for col_attrs in columns:
+                dcol = DColumn(**col_attrs)
+                dcol.validate()
+                table.columns.append(dcol)
         self._session.commit()
 
         klass = table.to_sa(self)
