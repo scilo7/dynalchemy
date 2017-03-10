@@ -55,9 +55,9 @@ class DColumn(Base):
         'Boolean': [],
         'Date': [],
         'DateTime': [],
-        'Enum': [dict(name='enums', mandatory=True)],
+        'Enum': [dict(name='choices', mandatory=True)],
         'Float': [dict(name='precision', mandatory=False)],
-        'Integer': [],
+        'Integer': [dict(name='relation', mandatory=False)],
         'LargeBinary': [dict(name='length', mandatory=False)],
         'Numeric': [],
         'SmallInteger': [],
@@ -73,13 +73,12 @@ class DColumn(Base):
     name = Column(String, nullable=False)
     kind = Column(String, nullable=False, default='String')
     active = Column(Boolean, nullable=False, default=True)
-    mandatory = Column(Boolean, nullable=False, default=False)
+    nullable = Column(Boolean, nullable=False, default=False)
     default = Column(String)
     length = Column(Integer)
     choices = Column(PickleType)
     precision = Column(Integer)
-    parent_relationship = Column(PickleType)
-    many_relationship = Column(PickleType)
+    relation = Column(PickleType)
 
     table = relationship(DTable, backref='columns')
 
@@ -99,16 +98,31 @@ class DColumn(Base):
     def is_relationship(self):
         """ True if the column is a relationship """
 
-        return self.parent_relationship or self.many_relationship
+        return self.relation
+
+    def is_many_relationship(self):
+
+        return self.relation and self.relation['type'] == 'many'
 
     def get_sa_relationship(self, registry):
         """ return sa Relationship """
 
-        parent = registry.get(
-            self.parent_relationship['collection'],
-            self.parent_relationship['name'])
-        return relationship(
-            parent, backref=self.parent_relationship.get('backref'))
+        if self.relation['type'] == 'parent':
+            parent = registry.get(
+                self.relation['collection'],
+                self.relation['name'])
+            return relationship(
+                parent, backref=self.relation.get('backref'))
+
+        elif self.relation['type'] == 'many':
+            link = registry.get(
+                self.relation['collection'],
+                self.relation['name'])
+            secondary = '%s_%s__association' % (self.table.get_name(), link.name)
+            return relationship(
+                link,
+                secondary=secondary,
+                backref=self.relation.get('backref'))
 
     def _get_type(self):
         """ sqlalchemy type for the column """
@@ -149,7 +163,7 @@ class DColumn(Base):
         args = self._get_args()
         kind = self._get_type()
         if self.is_relationship():
-            fkey = '%(collection)s__%(name)s.id' % self.parent_relationship
+            fkey = '%(collection)s__%(name)s.id' % self.relation
             return Column(self.name, kind, ForeignKey(fkey), **args)
         else:
             return Column(self.name, kind, **args)
@@ -159,10 +173,12 @@ class DColumn(Base):
         """ List fields availables for Column declaration of one type """
 
         fields = [
-            dict(name='name', mandatory=True),
-            dict(name='kind', mandatory=True),
-            dict(name='mandatory', mandatory=False),
-            dict(name='default', mandatory=False)]
+            dict(name='name', nullable=False),
+            dict(name='kind', nullable=False),
+            dict(name='nullable', nullable=True),
+            dict(name='default', nullable=True),
+        ]
+
         fields += DColumn.COLUMN_TYPES[kind]
         return fields
 

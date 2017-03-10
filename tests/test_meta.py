@@ -21,9 +21,9 @@ class TestRegistry(unittest.TestCase):
 
     def _get_class(self, collection='animal', name='bird'):
         return self.reg.add(collection, name, columns=[
-            dict(name='name', kind='String', max=200, null=False),
-            dict(name='nb_wings', kind='Integer', null=False),
-            dict(name='color', kind='String', max=200),
+            dict(name='name', kind='String', nullable=False),
+            dict(name='nb_wings', kind='Integer'),
+            dict(name='color', kind='String'),
         ])
 
     def test_add(self):
@@ -73,7 +73,7 @@ session.commit()
 
 pinson = session.query(Bird).filter_by(name='pinson').one()
 
-reg.add_column('animal', 'bird', dict(name='food', kind='String', max=200))
+reg.add_column('animal', 'bird', dict(name='food', kind='String'))
 pinson = session.query(Bird).filter_by(name='pinson').one()
 pinson.food = 'bread'
 session.commit()

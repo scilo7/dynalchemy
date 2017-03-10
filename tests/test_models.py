@@ -83,7 +83,7 @@ class TestDColumn(unittest.TestCase):
     def test_get_name_fk(self):
 
         col = DColumn(name='rel', kind='Integer',
-            parent_relationship={'collection': 'animal'})
+            relation={'collection': 'animal'})
         self.assertEqual(col.get_name(), 'rel__fk')
 
     def test_get_name(self):
@@ -94,7 +94,7 @@ class TestDColumn(unittest.TestCase):
     def test_is_relationship(self):
 
         col = DColumn(name='rel', kind='Integer',
-            parent_relationship={'collection': 'animal'})
+            relation={'collection': 'animal'})
         self.assertTrue(col.is_relationship())
 
     def test_get_sa_relationship(self):
@@ -106,7 +106,7 @@ class TestDColumn(unittest.TestCase):
         Bird = reg.add('animal', 'bird')
         rel = DColumn(
             name='rel', kind='Integer',
-            parent_relationship={'collection': 'animal', 'name': 'bird', 'backref': 'birds'})\
+            relation={'collection': 'animal', 'name': 'bird', 'backref': 'birds', 'type': 'parent'})\
             .get_sa_relationship(reg)
         self.assertEqual(rel.backref, 'birds')
 
@@ -132,8 +132,11 @@ class TestDTable(unittest.TestCase):
                 dict(
                     name='predator',
                     kind='Integer',
-                    parent_relationship={
-                        'collection': 'animal', 'name': 'bird', 'backref': 'predators'}
+                    relation={
+                        'collection': 'animal',
+                        'name': 'bird',
+                        'backref': 'foods',
+                        'type': 'parent'}
             )]
         )
         pinson = Bird(name='pinson', color='red')
@@ -147,6 +150,46 @@ class TestDTable(unittest.TestCase):
 
         corn = session.query(Food).filter_by(name='corn').one()
         self.assertEqual(corn.predator.name, 'pinson')
+
+    def test_relationship_many(self):
+
+        engine = create_engine('sqlite:///:memory:', echo=False)
+        base = declarative_base(bind=engine)
+        session = sessionmaker(bind=engine)()
+        reg = Registry(base, session)
+
+        Bird = reg.add('animal', 'bird', columns=[
+            dict(name='name', kind='String'),
+            dict(name='nb_wings', kind='Integer'),
+            dict(name='color', kind='String')
+        ])
+        Food = reg.add(
+            'food', 'food',
+            columns=[
+                dict(name='name', kind='String'),
+                dict(
+                    name='predators',
+                    kind='Integer',
+                    relation={
+                        'collection': 'animal',
+                        'name': 'bird',
+                        'backref': 'foods',
+                        'type': 'many'}
+            )]
+        )
+        pinson = Bird(name='pinson', color='red')
+        merle = Bird(name='merle', color='black')
+        session.add(pinson)
+        session.add(merle)
+        session.commit()
+        corn = Food(name='corn', predators=[pinson, merle])
+        # or corn = Food(bird__fk=pinson.id)
+        # session.add(corn)
+        session.commit()
+        session.expunge_all()
+
+        corn = session.query(Food).filter_by(name='corn').one()
+        self.assertEqual(len(corn.predators), 2)
 
 
 if __name__ == '__main__':
