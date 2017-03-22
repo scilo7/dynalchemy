@@ -2,9 +2,9 @@
 import sqlalchemy
 
 from sqlalchemy import Column, Integer, ForeignKey, String
-from sqlalchemy import Boolean, PickleType
+from sqlalchemy import Boolean, PickleType, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 # this Base is distinct from the application one
 # no need to mess the app with those classes
@@ -14,6 +14,9 @@ Base = declarative_base()
 class DTable(Base):
 
     __tablename__ = 'dynalchemy_table'
+    __table_args__ = (
+        UniqueConstraint('collection', 'name'),
+    )
 
     id = Column(Integer, primary_key=True)
     collection = Column(String, nullable=False)
@@ -82,7 +85,7 @@ class DColumn(Base):
     relation = Column(PickleType)
     foreign_key = Column(String)
 
-    table = relationship(DTable, backref='columns')
+    table = relationship(DTable, backref=backref('columns', lazy='joined'))
 
     def validate(self):
         """ Ensure attributes correctness
@@ -116,28 +119,28 @@ class DColumn(Base):
         return '%s__%s__association' % (
             self.table.name, self.relation['name'])
 
-    def get_parent_relationship(self, registry):
-        """ return sa Relationship """
+    def get_remote(self, registry):
 
-        parent = registry.get(
-            self.relation['collection'],
-            self.relation['name'])
-        return relationship(
-            parent, backref=self.relation.get('backref'))
+        return registry.get(self.relation['collection'], self.relation['name'])
 
-    def get_many_relationship(self, registry):
+    def get_secondary(self, registry):
 
-        remote = registry.get(
-            self.relation['collection'],
-            self.relation['name'])
-
-        secondary = registry.get(
+        return registry.get(
             self.table.collection,
             self.get_secondary_tablename())
 
+    def get_parent_relationship(self, registry):
+        """ return sa Relationship """
+
         return relationship(
-            remote,
-            secondary=secondary.__table__,
+            self.get_remote(registry),
+            backref=self.relation.get('backref'))
+
+    def get_many_relationship(self, registry):
+
+        return relationship(
+            self.get_remote(registry),
+            secondary=self.get_secondary(registry).__table__,
             backref=self.relation.get('backref'))
 
     def _get_type(self):

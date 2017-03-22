@@ -13,14 +13,24 @@ class Registry(object):
     def __init__(self, base, session):
 
         self._base = base
-        self._session = session
+        self.session = session
         self._create_meta_tables()
 
     def _create_meta_tables(self):
         """ Create registry tables in DB """
 
-        DTable.__table__.create(bind=self._session.get_bind())
-        DColumn.__table__.create(bind=self._session.get_bind())
+        bind = self.session.get_bind()
+        if not DTable.__table__.exists(bind):
+            DTable.__table__.create(bind)
+            DColumn.__table__.create(bind)
+
+    def destroy(self):
+        """ BEWARE !! - for unit tests mainly """
+
+        self.session.close()
+        self._base.metadata.drop_all()
+        DColumn.__table__.drop(bind=self.session.get_bind())
+        DTable.__table__.drop(bind=self.session.get_bind())
 
     def add(self, collection, name, columns=None, schema=None):
         """ Add a new table:
@@ -36,7 +46,7 @@ class Registry(object):
         """
 
         try:
-            old = self._session.query(DTable).filter_by(
+            old = self.session.query(DTable).filter_by(
                 collection=collection, name=name, schema=schema).one()
             if old:
                 raise TableExistException('table %s already defined' % name)
@@ -44,7 +54,7 @@ class Registry(object):
             # not found: ok
             pass
         table = DTable(collection=collection, name=name, schema=schema)
-        self._session.add(table)
+        self.session.add(table)
         many_relations = []
         if columns:
             for col_attrs in columns:
@@ -53,10 +63,10 @@ class Registry(object):
                 table.columns.append(dcol)
                 if dcol.is_many_relationship():
                     many_relations.append(dcol)
-        self._session.commit()
+        self.session.commit()
 
         klass = table.to_sa(self)
-        klass.__table__.create(bind=self._session.get_bind())
+        klass.__table__.create(bind=self.session.get_bind())
 
         for mrel in many_relations:
             self._add_relation_table(mrel)
@@ -85,12 +95,12 @@ class Registry(object):
         klass = self.get(collection, name)
         col = DColumn(table_id=klass.ID, name=attrs['name'], kind=attrs['kind'])
         col.validate()
-        self._session.add(col)
-        self._session.commit()
+        self.session.add(col)
+        self.session.commit()
         sql = 'alter table %s add %s' % (
             klass.__tablename__,
-            CreateColumn(col.to_sa()).compile(self._session.get_bind()))
-        con = self._session.get_bind().connect()
+            CreateColumn(col.to_sa()).compile(self.session.get_bind()))
+        con = self.session.get_bind().connect()
         con.execute(sql)
         con.close()
         if col.is_many_relationship():
@@ -125,12 +135,12 @@ class Registry(object):
             :return: None
         """
 
-        col = self._session.query(DColumn).join(DTable)\
+        col = self.session.query(DColumn).join(DTable)\
             .filter(DTable.collection == collection)\
             .filter(DTable.name == name)\
             .filter(DColumn.name == colname).one()
         col.active = False
-        self._session.commit()
+        self.session.commit()
 
         try:
             # remove from declarative registry
@@ -141,7 +151,7 @@ class Registry(object):
     def _get_dtable(self, collection, name):
         """ select dtable in db """
 
-        return self._session.query(DTable).filter_by(
+        return self.session.query(DTable).filter_by(
             collection=collection, name=name, active=True).one()
 
     def deprecate(self, collection, name):
@@ -156,7 +166,7 @@ class Registry(object):
 
         table = self._get_dtable(collection, name)
         table.active = False
-        self._session.commit()
+        self.session.commit()
         self._base.metadata.remove(table)
         try:
             del self._base._decl_class_registry[table.get_name()]
@@ -186,6 +196,11 @@ class Registry(object):
             :return: list of sqlalchemy table classes
         """
 
-        all_tables = self._session.query(DTable).filter_by(
+        all_tables = self.session.query(DTable).filter_by(
             collection=collection, active=True).all()
         return [self.get(collection, dtable.name, dtable) for dtable in all_tables]
+
+    def get_all(self):
+        return [self.get(None, None, dtable)
+            for dtable in self.session.query(DTable).all()]
+

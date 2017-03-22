@@ -110,22 +110,29 @@ class TestDColumn(unittest.TestCase):
             .get_parent_relationship(reg)
         self.assertEqual(rel.backref, 'birds')
 
+        reg.destroy()
+
 
 class TestDTable(unittest.TestCase):
 
-    def test_relationship_parent(self):
-
-        engine = create_engine('sqlite:///:memory:', echo=False)
+    def setUp(self):
+        engine = create_engine('sqlite:///:memory:', echo=True)
         base = declarative_base(bind=engine)
         session = sessionmaker(bind=engine)()
-        reg = Registry(base, session)
+        self.reg = Registry(base, session)
 
-        Bird = reg.add('animal', 'bird', columns=[
+    def tearDown(self):
+
+        self.reg.destroy()
+
+    def test_relationship_parent(self):
+
+        Bird = self.reg.add('animal', 'bird', columns=[
             dict(name='name', kind='String'),
             dict(name='nb_wings', kind='Integer'),
             dict(name='color', kind='String')
         ])
-        Food = reg.add(
+        Food = self.reg.add(
             'food', 'food',
             columns=[
                 dict(name='name', kind='String'),
@@ -140,31 +147,26 @@ class TestDTable(unittest.TestCase):
             )]
         )
         pinson = Bird(name='pinson', color='red')
-        session.add(pinson)
-        session.commit()
+        self.reg.session.add(pinson)
+        self.reg.session.commit()
         corn = Food(name='corn', predator=pinson)
         # or corn = Food(bird__fk=pinson.id)
         # session.add(corn)
-        session.commit()
-        session.expunge_all()
+        self.reg.session.commit()
+        self.reg.session.expunge_all()
 
-        corn = session.query(Food).filter_by(name='corn').one()
+        corn = self.reg.session.query(Food).filter_by(name='corn').one()
         self.assertEqual(corn.predator.name, 'pinson')
 
     def test_relationship_many(self):
 
-        engine = create_engine('sqlite:///:memory:', echo=True)
-        base = declarative_base(bind=engine)
-        session = sessionmaker(bind=engine)()
-        reg = Registry(base, session)
-
-        Bird = reg.add('animal', 'bird', columns=[
+        Bird = self.reg.add('animal', 'bird', columns=[
             dict(name='name', kind='String'),
             dict(name='nb_wings', kind='Integer'),
             dict(name='color', kind='String')
         ])
 
-        Seed = reg.add(
+        Seed = self.reg.add(
             'food', 'seed',
             columns=[
                 dict(name='name', kind='String'),
@@ -183,11 +185,11 @@ class TestDTable(unittest.TestCase):
         merle = Bird(name='merle', color='black')
         corn = Seed(name='corn', predators=[pinson, merle])
         # or corn = Food(bird_id=pinson.id)
-        session.add(corn)
-        session.commit()
-        session.expunge_all()
+        self.reg.session.add(corn)
+        self.reg.session.commit()
+        self.reg.session.expunge_all()
 
-        corn = session.query(Seed).filter_by(name='corn').one()
+        corn = self.reg.session.query(Seed).filter_by(name='corn').one()
         self.assertEqual(len(corn.predators), 2)
 
 
