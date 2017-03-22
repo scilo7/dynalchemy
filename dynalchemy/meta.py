@@ -36,15 +36,23 @@ class Registry(object):
             pass
         table = DTable(collection=collection, name=name, schema=schema)
         self._session.add(table)
+        many_relations = []
         if columns:
             for col_attrs in columns:
                 dcol = DColumn(**col_attrs)
                 dcol.validate()
                 table.columns.append(dcol)
+                if dcol.is_many_relationship():
+                    many_relations.append(dcol)
         self._session.commit()
 
+        print "ADD", table.name
         klass = table.to_sa(self)
         klass.__table__.create(bind=self._session.get_bind())
+
+        for mrel in many_relations:
+            self._add_relation_table(mrel)
+            setattr(klass, dcol.name, dcol.get_sa_relationship(self))
         return klass
 
     def add_from_config(self, config):
@@ -77,7 +85,29 @@ class Registry(object):
         con = self._session.get_bind().connect()
         con.execute(sql)
         con.close()
+        if col.is_many_relationship():
+            self._add_relation_table(col)
         _add_attribute(klass, name, col.to_sa())
+
+    def _add_relation_table(self, dcol):
+
+        columns = [
+            dict(
+                name=dcol.table.name,
+                kind='Integer',
+                foreign_key='%s.id' % dcol.table.get_name()
+            ),
+            dict(
+                name=dcol.relation['name'],
+                kind='Integer',
+                foreign_key='%(collection)s__%(name)s.id' % dcol.relation
+            )
+        ]
+        print '_add_relation_table', dcol.get_secondary_tablename()
+        print columns
+        self.add(dcol.table.collection, dcol.get_secondary_tablename(),
+                 columns=columns)
+
 
     def deprecate_column(self, collection, name, colname):
         """ Mark column colname as deprecated
@@ -106,6 +136,7 @@ class Registry(object):
     def _get_dtable(self, collection, name):
         """ select dtable in db """
 
+        print '>> SELECT', collection, name
         return self._session.query(DTable).filter_by(
             collection=collection, name=name, active=True).one()
 
@@ -141,7 +172,8 @@ class Registry(object):
         try:
             return self._base._decl_class_registry[key]
         except KeyError:
-            return self._create(dtable or self._get_dtable(collection, name))
+            table = dtable or self._get_dtable(collection, name)
+            return table.to_sa(self)
 
     def list(self, collection):
         """ Retrieve a collection of tables

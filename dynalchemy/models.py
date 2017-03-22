@@ -38,7 +38,8 @@ class DTable(Base):
         if self.schema:
             dct['__table_args__']['schema'] = self.schema
         for col in self.columns:
-            dct[col.get_name()] = col.to_sa()
+            if not col.is_many_relationship():
+                dct[col.get_name()] = col.to_sa()
             if col.is_relationship():
                 dct[col.name] = col.get_sa_relationship(registry)
 
@@ -79,6 +80,7 @@ class DColumn(Base):
     choices = Column(PickleType)
     precision = Column(Integer)
     relation = Column(PickleType)
+    foreign_key = Column(String)
 
     table = relationship(DTable, backref='columns')
 
@@ -100,9 +102,21 @@ class DColumn(Base):
 
         return self.relation
 
+    def is_parent_relationship(self):
+
+        return self.relation and self.relation['type'] == 'parent'
+
     def is_many_relationship(self):
 
         return self.relation and self.relation['type'] == 'many'
+
+    def get_secondary_tablename(self):
+        """ return the name of the secondary table in a many relationship """
+
+        return '%s_%s__%s__association' % (
+            self.table.get_name(),
+            self.relation['collection'],
+            self.relation['name'])
 
     def get_sa_relationship(self, registry):
         """ return sa Relationship """
@@ -118,10 +132,9 @@ class DColumn(Base):
             link = registry.get(
                 self.relation['collection'],
                 self.relation['name'])
-            secondary = '%s_%s__association' % (self.table.get_name(), link.name)
             return relationship(
                 link,
-                secondary=secondary,
+                secondary=self.get_secondary_tablename(),
                 backref=self.relation.get('backref'))
 
     def _get_type(self):
@@ -158,13 +171,19 @@ class DColumn(Base):
         return args
 
     def to_sa(self):
-        """ convert to sa object Column """
+        """ Convert to sa object Column
+            Many relationships are not created yet as the secondary table does
+            not exists yet
+        """
 
         args = self._get_args()
         kind = self._get_type()
-        if self.is_relationship():
+        if self.is_parent_relationship():
             fkey = '%(collection)s__%(name)s.id' % self.relation
             return Column(self.name, kind, ForeignKey(fkey), **args)
+        elif self.foreign_key:
+            # for secondary tables
+            return Column(self.name, kind, ForeignKey(self.foreign_key), **args)
         else:
             return Column(self.name, kind, **args)
 

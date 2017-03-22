@@ -163,6 +163,8 @@ class TestDTable(unittest.TestCase):
             dict(name='nb_wings', kind='Integer'),
             dict(name='color', kind='String')
         ])
+        print '*******************'
+        print
         Food = reg.add(
             'food', 'food',
             columns=[
@@ -177,6 +179,8 @@ class TestDTable(unittest.TestCase):
                         'type': 'many'}
             )]
         )
+        print '*******************'
+        print
         pinson = Bird(name='pinson', color='red')
         merle = Bird(name='merle', color='black')
         session.add(pinson)
