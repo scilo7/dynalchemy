@@ -1,4 +1,3 @@
-from sqlalchemy import Column, Integer, ForeignKey, Float, String, DateTime, Time
 from sqlalchemy.schema import CreateColumn
 from sqlalchemy.ext.declarative.base import _add_attribute
 from .models import DColumn, DTable
@@ -24,7 +23,17 @@ class Registry(object):
         DColumn.__table__.create(bind=self._session.get_bind())
 
     def add(self, collection, name, columns=None, schema=None):
-        """ add a new table """
+        """ Add a new table:
+            - insert definitions in DTable & DColumn
+            - Create sql table
+            - Create sqlalchemy model with relationships
+
+            :param collection: collection name, string
+            :param name: table name, string
+            :param columns: dictionary of columns definitions
+            :param schema: optional db schema, string
+            :return: sqlalchemy model
+        """
 
         try:
             old = self._session.query(DTable).filter_by(
@@ -46,13 +55,12 @@ class Registry(object):
                     many_relations.append(dcol)
         self._session.commit()
 
-        print "ADD", table.name
         klass = table.to_sa(self)
         klass.__table__.create(bind=self._session.get_bind())
 
         for mrel in many_relations:
             self._add_relation_table(mrel)
-            setattr(klass, dcol.name, dcol.get_sa_relationship(self))
+            setattr(klass, dcol.name, dcol.get_many_relationship(self))
         return klass
 
     def add_from_config(self, config):
@@ -93,21 +101,18 @@ class Registry(object):
 
         columns = [
             dict(
-                name=dcol.table.name,
+                name='%s_id' % dcol.table.name,
                 kind='Integer',
                 foreign_key='%s.id' % dcol.table.get_name()
             ),
             dict(
-                name=dcol.relation['name'],
+                name='%s_id' % dcol.relation['name'],
                 kind='Integer',
                 foreign_key='%(collection)s__%(name)s.id' % dcol.relation
             )
         ]
-        print '_add_relation_table', dcol.get_secondary_tablename()
-        print columns
         self.add(dcol.table.collection, dcol.get_secondary_tablename(),
                  columns=columns)
-
 
     def deprecate_column(self, collection, name, colname):
         """ Mark column colname as deprecated
@@ -136,7 +141,6 @@ class Registry(object):
     def _get_dtable(self, collection, name):
         """ select dtable in db """
 
-        print '>> SELECT', collection, name
         return self._session.query(DTable).filter_by(
             collection=collection, name=name, active=True).one()
 

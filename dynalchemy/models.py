@@ -40,8 +40,8 @@ class DTable(Base):
         for col in self.columns:
             if not col.is_many_relationship():
                 dct[col.get_name()] = col.to_sa()
-            if col.is_relationship():
-                dct[col.name] = col.get_sa_relationship(registry)
+                if col.is_parent_relationship():
+                    dct[col.name] = col.get_parent_relationship(registry)
 
         klass = type(str(self.get_name()), (registry._base,), dct)
         return klass
@@ -113,29 +113,32 @@ class DColumn(Base):
     def get_secondary_tablename(self):
         """ return the name of the secondary table in a many relationship """
 
-        return '%s_%s__%s__association' % (
-            self.table.get_name(),
+        return '%s__%s__association' % (
+            self.table.name, self.relation['name'])
+
+    def get_parent_relationship(self, registry):
+        """ return sa Relationship """
+
+        parent = registry.get(
+            self.relation['collection'],
+            self.relation['name'])
+        return relationship(
+            parent, backref=self.relation.get('backref'))
+
+    def get_many_relationship(self, registry):
+
+        remote = registry.get(
             self.relation['collection'],
             self.relation['name'])
 
-    def get_sa_relationship(self, registry):
-        """ return sa Relationship """
+        secondary = registry.get(
+            self.table.collection,
+            self.get_secondary_tablename())
 
-        if self.relation['type'] == 'parent':
-            parent = registry.get(
-                self.relation['collection'],
-                self.relation['name'])
-            return relationship(
-                parent, backref=self.relation.get('backref'))
-
-        elif self.relation['type'] == 'many':
-            link = registry.get(
-                self.relation['collection'],
-                self.relation['name'])
-            return relationship(
-                link,
-                secondary=self.get_secondary_tablename(),
-                backref=self.relation.get('backref'))
+        return relationship(
+            remote,
+            secondary=secondary.__table__,
+            backref=self.relation.get('backref'))
 
     def _get_type(self):
         """ sqlalchemy type for the column """

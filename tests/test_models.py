@@ -97,7 +97,7 @@ class TestDColumn(unittest.TestCase):
             relation={'collection': 'animal'})
         self.assertTrue(col.is_relationship())
 
-    def test_get_sa_relationship(self):
+    def test_get_parent_relationship(self):
 
         engine = create_engine('sqlite:///:memory:', echo=False)
         base = declarative_base(bind=engine)
@@ -107,7 +107,7 @@ class TestDColumn(unittest.TestCase):
         rel = DColumn(
             name='rel', kind='Integer',
             relation={'collection': 'animal', 'name': 'bird', 'backref': 'birds', 'type': 'parent'})\
-            .get_sa_relationship(reg)
+            .get_parent_relationship(reg)
         self.assertEqual(rel.backref, 'birds')
 
 
@@ -153,7 +153,7 @@ class TestDTable(unittest.TestCase):
 
     def test_relationship_many(self):
 
-        engine = create_engine('sqlite:///:memory:', echo=False)
+        engine = create_engine('sqlite:///:memory:', echo=True)
         base = declarative_base(bind=engine)
         session = sessionmaker(bind=engine)()
         reg = Registry(base, session)
@@ -163,15 +163,14 @@ class TestDTable(unittest.TestCase):
             dict(name='nb_wings', kind='Integer'),
             dict(name='color', kind='String')
         ])
-        print '*******************'
-        print
-        Food = reg.add(
-            'food', 'food',
+
+        Seed = reg.add(
+            'food', 'seed',
             columns=[
                 dict(name='name', kind='String'),
                 dict(
                     name='predators',
-                    kind='Integer',
+                    kind='Relation',
                     relation={
                         'collection': 'animal',
                         'name': 'bird',
@@ -179,39 +178,18 @@ class TestDTable(unittest.TestCase):
                         'type': 'many'}
             )]
         )
-        print '*******************'
-        print
+
         pinson = Bird(name='pinson', color='red')
         merle = Bird(name='merle', color='black')
-        session.add(pinson)
-        session.add(merle)
-        session.commit()
-        corn = Food(name='corn', predators=[pinson, merle])
-        # or corn = Food(bird__fk=pinson.id)
-        # session.add(corn)
+        corn = Seed(name='corn', predators=[pinson, merle])
+        # or corn = Food(bird_id=pinson.id)
+        session.add(corn)
         session.commit()
         session.expunge_all()
 
-        corn = session.query(Food).filter_by(name='corn').one()
+        corn = session.query(Seed).filter_by(name='corn').one()
         self.assertEqual(len(corn.predators), 2)
 
 
 if __name__ == '__main__':
     unittest.main()
-
-
-'''    def test_to_sa(self):
-
-        klass = self.reg._create(
-            DTable(
-                collection='animal',
-                name='bird',
-                columns=[
-                    DColumn(name='one', kind='String'),
-                    DColumn(name='two', kind='Integer')
-                ]
-            )
-        )
-        self.assertEqual(klass.__tablename__, 'animal__bird')
-        self.assertTrue(hasattr(klass, 'id'))
-        self.assertTrue(hasattr(klass, 'one'))'''
