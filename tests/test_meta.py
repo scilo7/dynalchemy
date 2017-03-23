@@ -57,27 +57,12 @@ class TestRegistry(unittest.TestCase):
         Bird3 = self._get_class(collection='zoo')
         self.assertEqual(self.reg.list('animal'), [Bird, Bird2])
 
+    def test_add_column(self):
+        self._get_class()
+        self.reg.add_column('animal', 'bird', dict(name='extra', kind='String'))
+        Bird = self.reg.get('animal', 'bird')
+        self.assertTrue(hasattr(Bird, 'extra'))
+
 
 if __name__ == '__main__':
     unittest.main()
-
-
-
-
-'''
-
-Bird = reg.get('animal', 'bird')
-
-session.add(Bird(name='pinson', nb_wings=4, color='lightblue'))
-session.commit()
-
-pinson = session.query(Bird).filter_by(name='pinson').one()
-
-reg.add_column('animal', 'bird', dict(name='food', kind='String'))
-pinson = session.query(Bird).filter_by(name='pinson').one()
-pinson.food = 'bread'
-session.commit()
-
-reg.deprecate_column('animal', 'bird', 'food')
-reg.deprecate('animal', 'bird')
-reg.get('animal', 'bird')'''

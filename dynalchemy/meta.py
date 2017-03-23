@@ -68,6 +68,7 @@ class Registry(object):
         klass = table.to_sa(self)
         klass.__table__.create(bind=self.session.get_bind())
 
+        # secondary tables and attributes must be created afterwards
         for mrel in many_relations:
             self._add_relation_table(mrel)
             setattr(klass, dcol.name, dcol.get_many_relationship(self))
@@ -92,20 +93,25 @@ class Registry(object):
             - append the attribute to the base class
         """
 
+        # register in db
         klass = self.get(collection, name)
-        col = DColumn(table_id=klass.ID, name=attrs['name'], kind=attrs['kind'])
+        col = DColumn(table_id=klass.ID, **attrs)
         col.validate()
         self.session.add(col)
         self.session.commit()
+
+        # alter table
         sql = 'alter table %s add %s' % (
-            klass.__tablename__,
+            col.table.get_name(),
             CreateColumn(col.to_sa()).compile(self.session.get_bind()))
         con = self.session.get_bind().connect()
         con.execute(sql)
         con.close()
+
+        # alter model
+        setattr(klass, name, col.to_sa())
         if col.is_many_relationship():
             self._add_relation_table(col)
-        _add_attribute(klass, name, col.to_sa())
 
     def _add_relation_table(self, dcol):
 
