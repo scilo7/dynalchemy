@@ -51,6 +51,16 @@ class DTable(Base):
 
 
 class DColumn(Base):
+    """ Column types
+
+        Note on relations:
+        * ManyRelation:
+            the kind can be anything but should be 'ManyRelation'
+            as a convention. No column is created, but a relationship
+        * ParentRelation:
+            The kind is 'Integer'.
+            The foreign key takes the name col.name + '__id'
+    """
 
     COLUMN_TYPES = {
         # accepted types & their construction args
@@ -83,7 +93,6 @@ class DColumn(Base):
     choices = Column(PickleType)
     precision = Column(Integer)
     relation = Column(PickleType)
-    foreign_key = Column(String)
 
     table = relationship(DTable, backref=backref('columns', lazy='joined'))
 
@@ -94,9 +103,15 @@ class DColumn(Base):
         pass
 
     def get_name(self):
+        """ Return name of the columm: name for std cols, name__id for
+            parent relationship
+
+            :return: column name in sa model
+            :rtype: string
+        """
 
         if self.is_relationship():
-            return '%s__fk' % self.name
+            return '%s__id' % self.name
         else:
             return self.name
 
@@ -106,10 +121,12 @@ class DColumn(Base):
         return self.relation
 
     def is_parent_relationship(self):
+        """ True if the column is a parent relationship """
 
         return self.relation and self.relation['type'] == 'parent'
 
     def is_many_relationship(self):
+        """ True if the column is a many relationship """
 
         return self.relation and self.relation['type'] == 'many'
 
@@ -120,23 +137,26 @@ class DColumn(Base):
             self.table.name, self.relation['name'])
 
     def get_remote(self, registry):
+        """ return the remote SA model in a relationship """
 
         return registry.get(self.relation['collection'], self.relation['name'])
 
     def get_secondary(self, registry):
+        """ return the secondary SA model in a many relationship """
 
         return registry.get(
             self.table.collection,
             self.get_secondary_tablename())
 
     def get_parent_relationship(self, registry):
-        """ return sa Relationship """
+        """ return the SA model in a parent relationship """
 
         return relationship(
             self.get_remote(registry),
-            backref=self.relation.get('backref'))
+            backref=self.relation.get('backref', None))
 
     def get_many_relationship(self, registry):
+        """ return the SA relationship in a many relationship """
 
         return relationship(
             self.get_remote(registry),
@@ -174,6 +194,8 @@ class DColumn(Base):
         args = {}
         if self.default is not None:
             args['default'] = self._get_default()
+        if self.kind in ('Numeric', 'Float') and self.precision:
+            args['precision'] = self.precision
         return args
 
     def to_sa(self):
@@ -186,12 +208,9 @@ class DColumn(Base):
         kind = self._get_type()
         if self.is_parent_relationship():
             fkey = '%(collection)s__%(name)s.id' % self.relation
-            return Column(self.name, kind, ForeignKey(fkey), **args)
-        elif self.foreign_key:
-            # for secondary tables
-            return Column(self.name, kind, ForeignKey(self.foreign_key), **args)
+            return Column(kind, ForeignKey(fkey), **args)
         else:
-            return Column(self.name, kind, **args)
+            return Column(kind, **args)
 
     @classmethod
     def get_serialization_fields(cls, kind):

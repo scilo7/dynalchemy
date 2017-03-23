@@ -111,16 +111,23 @@ class Registry(object):
 
         columns = [
             dict(
-                name='%s_id' % dcol.table.name,
+                name=dcol.table.name,
                 kind='Integer',
-                foreign_key='%s.id' % dcol.table.get_name()
+                relation={
+                    'collection': dcol.table.collection,
+                    'name': dcol.table.name,
+                    'type': 'parent'}
             ),
             dict(
-                name='%s_id' % dcol.relation['name'],
+                name=dcol.relation['name'],
                 kind='Integer',
-                foreign_key='%(collection)s__%(name)s.id' % dcol.relation
+                relation={
+                    'collection': dcol.relation['collection'],
+                    'name': dcol.relation['name'],
+                    'type': 'parent'}
             )
         ]
+
         self.add(dcol.table.collection, dcol.get_secondary_tablename(),
                  columns=columns)
 

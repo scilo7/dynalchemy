@@ -77,14 +77,13 @@ class TestDColumn(unittest.TestCase):
     def test_to_sa(self):
 
         col = DColumn(name='bob', kind='Float', default='1').to_sa()
-        self.assertEqual(col.name, 'bob')
-        #self.assertEqual(col.type, sqlalchemy.sql.sqltypes.Float)
+        self.assertEqual(col.type.__class__, sqlalchemy.sql.sqltypes.Float)
 
     def test_get_name_fk(self):
 
         col = DColumn(name='rel', kind='Integer',
             relation={'collection': 'animal'})
-        self.assertEqual(col.get_name(), 'rel__fk')
+        self.assertEqual(col.get_name(), 'rel__id')
 
     def test_get_name(self):
 
@@ -116,7 +115,7 @@ class TestDColumn(unittest.TestCase):
 class TestDTable(unittest.TestCase):
 
     def setUp(self):
-        engine = create_engine('sqlite:///:memory:', echo=True)
+        engine = create_engine('sqlite:///:memory:', echo=False)
         base = declarative_base(bind=engine)
         session = sessionmaker(bind=engine)()
         self.reg = Registry(base, session)
@@ -127,12 +126,12 @@ class TestDTable(unittest.TestCase):
 
     def test_relationship_parent(self):
 
-        Bird = self.reg.add('animal', 'bird', columns=[
+        self.reg.add('animal', 'bird', columns=[
             dict(name='name', kind='String'),
             dict(name='nb_wings', kind='Integer'),
             dict(name='color', kind='String')
         ])
-        Food = self.reg.add(
+        self.reg.add(
             'food', 'food',
             columns=[
                 dict(name='name', kind='String'),
@@ -146,11 +145,14 @@ class TestDTable(unittest.TestCase):
                         'type': 'parent'}
             )]
         )
+
+        Bird = self.reg.get('animal', 'bird')
+        Food = self.reg.get('food', 'food')
         pinson = Bird(name='pinson', color='red')
         self.reg.session.add(pinson)
         self.reg.session.commit()
         corn = Food(name='corn', predator=pinson)
-        # or corn = Food(bird__fk=pinson.id)
+        # or corn = Food(bird__id=pinson.id)
         # session.add(corn)
         self.reg.session.commit()
         self.reg.session.expunge_all()
