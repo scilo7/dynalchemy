@@ -208,9 +208,9 @@ class DColumn(Base):
         kind = self._get_type()
         if self.is_parent_relationship():
             fkey = '%(collection)s__%(name)s.id' % self.relation
-            return Column(kind, ForeignKey(fkey), **args)
+            return Column(self.get_name(), kind, ForeignKey(fkey), **args)
         else:
-            return Column(kind, **args)
+            return Column(self.get_name(), kind, **args)
 
     @classmethod
     def get_serialization_fields(cls, kind):

@@ -108,10 +108,15 @@ class Registry(object):
         con.execute(sql)
         con.close()
 
-        # alter model
-        setattr(klass, name, col.to_sa())
         if col.is_many_relationship():
             self._add_relation_table(col)
+
+        # force model to refresh
+        try:
+            # remove from declarative registry
+            del self._base._decl_class_registry[col.table.get_name()]
+        except:
+            pass
 
     def _add_relation_table(self, dcol):
 
