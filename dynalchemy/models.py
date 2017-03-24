@@ -161,7 +161,7 @@ class DColumn(Base):
         return relationship(
             self.get_remote(registry),
             secondary=self.get_secondary(registry).__table__,
-            backref=self.relation.get('backref'))
+            backref=self.relation.get('backref', None))
 
     def _get_type(self):
         """ sqlalchemy type for the column """

@@ -2,7 +2,7 @@
 import unittest
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Integer
 from sqlalchemy.orm import sessionmaker, relationship
 
 from dynalchemy import Registry
@@ -65,7 +65,7 @@ class TestRegistry(unittest.TestCase):
 
     def test_add_parent_relation(self):
         self._create_bird()
-        self.reg.add('food', 'food', columns=[
+        food = self.reg.add('food', 'food', columns=[
             dict(name='name', kind='String', nullable=False),
         ])
 
@@ -75,8 +75,37 @@ class TestRegistry(unittest.TestCase):
                 relation=dict(collection='food', name='food', type='parent')))
 
         Bird = self.reg.get('animal', 'bird')
-        self.assertTrue(hasattr(Bird, 'food'))
-        self.assertTrue(hasattr(Bird, 'food__id'))
+        self.assertEqual(Bird.food.property.target, food.__table__)
+        self.assertEqual(Bird.food__id.property.columns[0].type.__class__, Integer)
+
+    def test_add_many_relation(self):
+        self._create_bird()
+        food = self.reg.add('food', 'food', columns=[
+            dict(name='name', kind='String', nullable=False),
+        ])
+
+        self.reg.add_column('animal', 'bird',
+            dict(
+                name='foods', kind='ManyRelation',
+                relation=dict(collection='food', name='food', type='many')))
+
+        Bird = self.reg.get('animal', 'bird')
+        self.assertEqual(Bird.foods.property.target, food.__table__)
+
+    # def test_backref(self):
+    #     self._create_bird()
+    #     food = self.reg.add('food', 'food', columns=[
+    #         dict(name='name', kind='String', nullable=False),
+    #     ])
+
+    #     self.reg.add_column('animal', 'bird',
+    #         dict(
+    #             name='food', kind='Integer',
+    #             relation=dict(collection='food', name='food',
+    #                 type='parent', backref='predators')))
+
+    #     Bird = self.reg.get('animal', 'bird')
+    #     self.assertEqual(food.predators.target, Bird.__table__)
 
 
 if __name__ == '__main__':

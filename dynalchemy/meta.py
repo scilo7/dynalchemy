@@ -48,11 +48,12 @@ class Registry(object):
         try:
             old = self.session.query(DTable).filter_by(
                 collection=collection, name=name, schema=schema).one()
-            if old:
-                raise TableExistException('table %s already defined' % name)
         except:
             # not found: ok
             pass
+        else:
+            raise TableExistException('table %s already defined' % name)
+
         table = DTable(collection=collection, name=name, schema=schema)
         self.session.add(table)
         many_relations = []
@@ -100,25 +101,25 @@ class Registry(object):
         self.session.add(col)
         self.session.commit()
 
-        # alter table
-        sql = 'alter table %s add %s' % (
-            col.table.get_name(),
-            CreateColumn(col.to_sa()).compile(self.session.get_bind()))
-        con = self.session.get_bind().connect()
-        con.execute(sql)
-        con.close()
-
         if col.is_many_relationship():
             self._add_relation_table(col)
+        else:
+            # alter table
+            sql = 'alter table %s add %s' % (
+                col.table.get_name(),
+                CreateColumn(col.to_sa()).compile(self.session.get_bind()))
+            con = self.session.get_bind().connect()
+            con.execute(sql)
+            con.close()
 
-        # force model to refresh
+        # force model to refresh: remove from declarative registry
         try:
-            # remove from declarative registry
             del self._base._decl_class_registry[col.table.get_name()]
         except:
             pass
 
     def _add_relation_table(self, dcol):
+        """ Create secondary table in db """
 
         columns = [
             dict(
@@ -205,7 +206,12 @@ class Registry(object):
             return self._base._decl_class_registry[key]
         except KeyError:
             table = dtable or self._get_dtable(collection, name)
-            return table.to_sa(self)
+            klass = table.to_sa(self)
+            for col in table.columns:
+                if col.is_many_relationship():
+                    setattr(klass, col.name, col.get_many_relationship(self))
+            return klass
+
 
     def list(self, collection):
         """ Retrieve a collection of tables
