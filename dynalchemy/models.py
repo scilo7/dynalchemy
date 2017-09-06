@@ -38,15 +38,20 @@ class DTable(Base):
             'ID': self.id,
             'id': Column(Integer, primary_key=True)
         }
+        parent_rels = {}
         if self.schema:
             dct['__table_args__']['schema'] = self.schema
+
         for col in self.columns:
-            if not col.is_many_relationship():
-                dct[col.get_name()] = col.to_sa()
-                if col.is_parent_relationship():
-                    dct[col.name] = col.get_parent_relationship(registry)
+            if col.is_many_relationship():
+                continue
+            dct[col.get_name()] = col.to_sa()
+            if col.is_parent_relationship():
+                parent_rels[col.name] = col.get_parent_relationship(registry)
 
         klass = type(str(self.get_name()), (registry._base,), dct)
+        for key, val in parent_rels.items():
+            setattr(klass, key, val)
         return klass
 
 
@@ -94,7 +99,7 @@ class DColumn(Base):
     precision = Column(Integer)
     relation = Column(PickleType)
 
-    table = relationship(DTable, backref=backref('columns', lazy='joined'))
+    table = relationship(DTable, backref='columns') #backref('columns', lazy='joined'))
 
     def validate(self):
         """ Ensure attributes correctness
@@ -151,17 +156,27 @@ class DColumn(Base):
     def get_parent_relationship(self, registry):
         """ return the SA model in a parent relationship """
 
+        bref_name = self.relation.get('backref',
+            '%s_collection' % self.table.name)
+
         return relationship(
             self.get_remote(registry),
-            backref=self.relation.get('backref', None))
+            cascade="save-update, merge",
+            backref=backref(bref_name, cascade="all, delete-orphan")
+        )
 
     def get_many_relationship(self, registry):
         """ return the SA relationship in a many relationship """
 
+        bref_name = self.relation.get('backref',
+            '%s_collection' % self.table.name)
+
         return relationship(
             self.get_remote(registry),
             secondary=self.get_secondary(registry).__table__,
-            backref=self.relation.get('backref', None))
+            cascade="save-update, merge",
+            backref=backref(bref_name)
+        )
 
     def _get_type(self):
         """ sqlalchemy type for the column """

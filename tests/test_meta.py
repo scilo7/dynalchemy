@@ -8,6 +8,11 @@ from sqlalchemy.orm import sessionmaker, relationship
 from dynalchemy import Registry
 from dynalchemy.models import DTable, DColumn
 
+import logging
+
+logging.basicConfig()
+# logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
+
 
 class TestRegistry(unittest.TestCase):
 
@@ -64,17 +69,14 @@ class TestRegistry(unittest.TestCase):
         self.assertTrue(hasattr(Bird, 'extra'))
 
     def test_add_parent_relation(self):
-        self._create_bird()
+        Bird = self._create_bird()
         food = self.reg.add('food', 'food', columns=[
             dict(name='name', kind='String', nullable=False),
         ])
-
         self.reg.add_column('animal', 'bird',
             dict(
                 name='food', kind='Integer',
                 relation=dict(collection='food', name='food', type='parent')))
-
-        Bird = self.reg.get('animal', 'bird')
         self.assertEqual(Bird.food.property.target, food.__table__)
         self.assertEqual(Bird.food__id.property.columns[0].type.__class__, Integer)
 
@@ -93,19 +95,29 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(Bird.foods.property.target, food.__table__)
 
     # def test_backref(self):
-    #     self._create_bird()
-    #     food = self.reg.add('food', 'food', columns=[
+    #     Food = self.reg.add('food', 'food', columns=[
     #         dict(name='name', kind='String', nullable=False),
     #     ])
 
-    #     self.reg.add_column('animal', 'bird',
-    #         dict(
-    #             name='food', kind='Integer',
+    #     Bird = self.reg.add('animal', 'bird', columns=[
+    #         dict(name='name', kind='String', nullable=False),
+    #         dict(name='nb_wings', kind='Integer'),
+    #         dict(name='color', kind='String'),
+    #         dict(name='food', kind='Integer',
     #             relation=dict(collection='food', name='food',
-    #                 type='parent', backref='predators')))
+    #                 type='parent', backref='predators'))
+    #     ])
 
-    #     Bird = self.reg.get('animal', 'bird')
-    #     self.assertEqual(food.predators.target, Bird.__table__)
+    #     self.assertEqual(Food.predators.target, Bird.__table__)
+
+        # self.reg.add_column('animal', 'bird',
+        #     dict(
+        #         name='food', kind='Integer',
+        #         relation=dict(collection='food', name='food',
+        #             type='parent', backref='predators')))
+
+        # Bird = self.reg.get('animal', 'bird')
+        # self.assertEqual(Food.predators.target, Bird.__table__)
 
 
 if __name__ == '__main__':

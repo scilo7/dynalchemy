@@ -14,10 +14,11 @@ class Registry(object):
 
         self._base = base
         self.session = session
-        self._create_meta_tables()
+        self._ensure_meta_tables()
+        self._load_all()
 
-    def _create_meta_tables(self):
-        """ Create registry tables in DB """
+    def _ensure_meta_tables(self):
+        """ Create registry tables in DB if they do not exist"""
 
         bind = self.session.get_bind()
         if not DTable.__table__.exists(bind):
@@ -112,11 +113,15 @@ class Registry(object):
             con.execute(sql)
             con.close()
 
-        # force model to refresh: remove from declarative registry
-        try:
-            del self._base._decl_class_registry[col.table.get_name()]
-        except:
-            pass
+        if col.is_parent_relationship():
+            setattr(klass, col.get_name(), col.to_sa())
+            setattr(klass, col.name, col.get_parent_relationship(self))
+            # getattr(klass, col.name).property.init()
+
+        elif col.is_many_relationship():
+            setattr(klass, col.name, col.get_many_relationship(self))
+        else:
+            setattr(klass, col.get_name(), col.to_sa())
 
     def _add_relation_table(self, dcol):
         """ Create secondary table in db """
@@ -161,11 +166,10 @@ class Registry(object):
         col.active = False
         self.session.commit()
 
-        try:
-            # remove from declarative registry
-            del self._base._decl_class_registry[col.table.get_name()]
-        except:
-            pass
+        # remove from declarative registry
+        del self._base._decl_class_registry[col.table.get_name()]
+        self._reload(collection, name)
+
 
     def _get_dtable(self, collection, name):
         """ select dtable in db """
@@ -192,26 +196,29 @@ class Registry(object):
         except:
             pass
 
-    def get(self, collection, name, dtable=None):
+    def get(self, collection, name):
         """ Retrieve one mapped sqlalchemy class
 
             :param collection: collection name - String
             :param name: table name - String
-            :param dtable: dtable instance already loaded
-            :return: sqlalchemy table class
+            :return: sqlalchemy model
         """
 
         key = '%s__%s' % (collection, name)
         try:
             return self._base._decl_class_registry[key]
         except KeyError:
-            table = dtable or self._get_dtable(collection, name)
-            klass = table.to_sa(self)
-            for col in table.columns:
-                if col.is_many_relationship():
-                    setattr(klass, col.name, col.get_many_relationship(self))
-            return klass
+            # models are stored as weakrefs: they have been discard
+            return self._reload(collection, name)
 
+    def _reload(self, collection, name):
+
+        table = self._get_dtable(collection, name)
+        klass = table.to_sa(self)
+        for col in table.columns:
+            if col.is_many_relationship():
+                setattr(klass, col.name, col.get_many_relationship(self))
+        return klass
 
     def list(self, collection):
         """ Retrieve a collection of tables
@@ -222,9 +229,12 @@ class Registry(object):
 
         all_tables = self.session.query(DTable).filter_by(
             collection=collection, active=True).all()
-        return [self.get(collection, dtable.name, dtable) for dtable in all_tables]
+        return [self.get(collection, dtable.name) for dtable in all_tables]
 
-    def get_all(self):
-        return [self.get(None, None, dtable)
-            for dtable in self.session.query(DTable).all()]
+    def _load_all(self):
 
+        for table in self.session.query(DTable).all():
+            klass = table.to_sa(self)
+            for col in table.columns:
+                if col.is_many_relationship():
+                    setattr(klass, col.name, col.get_many_relationship(self))

@@ -1,7 +1,7 @@
 from sqlalchemy import Integer, String, Enum, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, joinedload
 from dynalchemy import Registry
 
 import unittest
@@ -96,26 +96,26 @@ class TestDColumn(unittest.TestCase):
             relation={'collection': 'animal'})
         self.assertTrue(col.is_relationship())
 
-    def test_get_parent_relationship(self):
+    # def test_get_parent_relationship(self):
 
-        engine = create_engine('sqlite:///:memory:', echo=False)
-        base = declarative_base(bind=engine)
-        reg = Registry(base, sessionmaker(bind=engine)())
+    #     engine = create_engine('sqlite:///:memory:', echo=False)
+    #     base = declarative_base(bind=engine)
+    #     reg = Registry(base, sessionmaker(bind=engine)())
 
-        Bird = reg.add('animal', 'bird')
-        rel = DColumn(
-            name='rel', kind='Integer',
-            relation={'collection': 'animal', 'name': 'bird', 'backref': 'birds', 'type': 'parent'})\
-            .get_parent_relationship(reg)
-        self.assertEqual(rel.backref, 'birds')
+    #     Bird = reg.add('animal', 'bird')
+    #     rel = DColumn(
+    #         name='rel', kind='Integer',
+    #         relation={'collection': 'animal', 'name': 'bird', 'backref': 'birds', 'type': 'parent'})\
+    #         .get_parent_relationship(reg)
+    #     self.assertEqual(rel.backref, 'birds')
 
-        reg.destroy()
+    #     reg.destroy()
 
 
 class TestDTable(unittest.TestCase):
 
     def setUp(self):
-        engine = create_engine('sqlite:///:memory:', echo=False)
+        engine = create_engine('sqlite:///:memory:', echo=True)
         base = declarative_base(bind=engine)
         session = sessionmaker(bind=engine)()
         self.reg = Registry(base, session)
@@ -141,24 +141,26 @@ class TestDTable(unittest.TestCase):
                     relation={
                         'collection': 'animal',
                         'name': 'bird',
-                        'backref': 'foods',
-                        'type': 'parent'}
+                        'type': 'parent',
+                        'backref': 'aliments'}
             )]
         )
 
         Bird = self.reg.get('animal', 'bird')
         Food = self.reg.get('food', 'food')
         pinson = Bird(name='pinson', color='red')
-        self.reg.session.add(pinson)
-        self.reg.session.commit()
+
         corn = Food(name='corn', predator=pinson)
+        self.reg.session.add(pinson)
         # or corn = Food(bird__id=pinson.id)
         # session.add(corn)
         self.reg.session.commit()
         self.reg.session.expunge_all()
 
-        corn = self.reg.session.query(Food).filter_by(name='corn').one()
+        corn = self.reg.session.query(Food).options(
+            joinedload('predator')).filter_by(name='corn').one()
         self.assertEqual(corn.predator.name, 'pinson')
+        self.assertEqual(corn.predator.aliments[0], corn)
 
     def test_relationship_many(self):
 
@@ -178,7 +180,6 @@ class TestDTable(unittest.TestCase):
                     relation={
                         'collection': 'animal',
                         'name': 'bird',
-                        'backref': 'foods',
                         'type': 'many'}
             )]
         )
