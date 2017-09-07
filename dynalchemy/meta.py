@@ -1,5 +1,4 @@
 from sqlalchemy.schema import CreateColumn
-from sqlalchemy.ext.declarative.base import _add_attribute
 from .models import DColumn, DTable
 
 
@@ -129,19 +128,19 @@ class Registry(object):
         columns = [
             dict(
                 name=dcol.table.name,
-                kind='Integer',
+                kind='Relation',
                 relation={
                     'collection': dcol.table.collection,
                     'name': dcol.table.name,
-                    'type': 'parent'}
+                    'cardinality': 'one'}
             ),
             dict(
                 name=dcol.relation['name'],
-                kind='Integer',
+                kind='Relation',
                 relation={
                     'collection': dcol.relation['collection'],
                     'name': dcol.relation['name'],
-                    'type': 'parent'}
+                    'cardinality': 'one'}
             )
         ]
 

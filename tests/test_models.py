@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, Enum, Float
+from sqlalchemy import Column, Integer, String, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, joinedload
@@ -7,7 +7,7 @@ from dynalchemy import Registry
 import unittest
 import sqlalchemy
 
-from dynalchemy.models import DTable, DColumn
+from dynalchemy.models import DColumn
 
 
 class TestDColumn(unittest.TestCase):
@@ -81,7 +81,7 @@ class TestDColumn(unittest.TestCase):
 
     def test_get_name_fk(self):
 
-        col = DColumn(name='rel', kind='Integer',
+        col = DColumn(name='rel', kind='Relation',
             relation={'collection': 'animal'})
         self.assertEqual(col.get_name(), 'rel__id')
 
@@ -92,7 +92,7 @@ class TestDColumn(unittest.TestCase):
 
     def test_is_relationship(self):
 
-        col = DColumn(name='rel', kind='Integer',
+        col = DColumn(name='rel', kind='Relation',
             relation={'collection': 'animal'})
         self.assertTrue(col.is_relationship())
 
@@ -115,7 +115,7 @@ class TestDColumn(unittest.TestCase):
 class TestDTable(unittest.TestCase):
 
     def setUp(self):
-        engine = create_engine('sqlite:///:memory:', echo=True)
+        engine = create_engine('sqlite:///:memory:', echo=False)
         base = declarative_base(bind=engine)
         session = sessionmaker(bind=engine)()
         self.reg = Registry(base, session)
@@ -137,11 +137,11 @@ class TestDTable(unittest.TestCase):
                 dict(name='name', kind='String'),
                 dict(
                     name='predator',
-                    kind='Integer',
+                    kind='Relation',
                     relation={
                         'collection': 'animal',
                         'name': 'bird',
-                        'type': 'parent',
+                        'cardinality': 'one',
                         'backref': 'aliments'}
             )]
         )
@@ -180,7 +180,7 @@ class TestDTable(unittest.TestCase):
                     relation={
                         'collection': 'animal',
                         'name': 'bird',
-                        'type': 'many'}
+                        'cardinality': 'many'}
             )]
         )
 
@@ -195,6 +195,38 @@ class TestDTable(unittest.TestCase):
         corn = self.reg.session.query(Seed).filter_by(name='corn').one()
         self.assertEqual(len(corn.predators), 2)
 
+    def test_relationship_external(self):
+
+        class Specie(self.reg._base):
+            __tablename__ = 'specie'
+            id = Column(Integer, primary_key=True)
+            name = Column(String, nullable=False)
+        Specie.__table__.create(self.reg.session.get_bind())
+
+        vertebrate = Specie(name='vertebrate')
+        self.reg.session.add(vertebrate)
+        self.reg.session.commit()
+
+        Bird = self.reg.add('animal', 'bird', columns=[
+            dict(name='name', kind='String'),
+            dict(name='nb_wings', kind='Integer'),
+            dict(name='color', kind='String'),
+            dict(name='specie', kind='Relation',
+                relation={
+                    'external': Specie.__name__,
+                    'tablename': Specie.__tablename__,
+                    'cardinality': 'one'
+                }
+            )
+        ])
+
+        pinson = Bird(name='pinson', color='red', specie=vertebrate)
+        self.reg.session.add(pinson)
+        self.reg.session.commit()
+        self.reg.session.expunge_all()
+
+        pinson = self.reg.session.query(Bird).one()
+        self.assertEqual(pinson.specie.name, 'vertebrate')
 
 if __name__ == '__main__':
     unittest.main()

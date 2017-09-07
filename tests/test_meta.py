@@ -75,8 +75,8 @@ class TestRegistry(unittest.TestCase):
         ])
         self.reg.add_column('animal', 'bird',
             dict(
-                name='food', kind='Integer',
-                relation=dict(collection='food', name='food', type='parent')))
+                name='food', kind='Relation',
+                relation=dict(collection='food', name='food', cardinality='one')))
         self.assertEqual(Bird.food.property.target, food.__table__)
         self.assertEqual(Bird.food__id.property.columns[0].type.__class__, Integer)
 
@@ -88,8 +88,8 @@ class TestRegistry(unittest.TestCase):
 
         self.reg.add_column('animal', 'bird',
             dict(
-                name='foods', kind='ManyRelation',
-                relation=dict(collection='food', name='food', type='many')))
+                name='foods', kind='Relation',
+                relation=dict(collection='food', name='food', cardinality='many')))
 
         Bird = self.reg.get('animal', 'bird')
         self.assertEqual(Bird.foods.property.target, food.__table__)

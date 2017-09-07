@@ -123,17 +123,17 @@ class DColumn(Base):
     def is_relationship(self):
         """ True if the column is a relationship """
 
-        return self.relation
+        return self.kind == 'Relation'
 
     def is_parent_relationship(self):
         """ True if the column is a parent relationship """
 
-        return self.relation and self.relation['type'] == 'parent'
+        return self.is_relationship() and self.relation['cardinality'] == 'one'
 
     def is_many_relationship(self):
         """ True if the column is a many relationship """
 
-        return self.relation and self.relation['type'] == 'many'
+        return self.is_relationship() and self.relation['cardinality'] == 'many'
 
     def get_secondary_tablename(self):
         """ return the name of the secondary table in a many relationship """
@@ -159,8 +159,12 @@ class DColumn(Base):
         bref_name = self.relation.get('backref',
             '%s_collection' % self.table.name)
 
+        if 'external' in self.relation:
+            remote = self.relation['external']
+        else:
+            remote = self.get_remote(registry)
         return relationship(
-            self.get_remote(registry),
+            remote,
             cascade="save-update, merge",
             backref=backref(bref_name, cascade="all, delete-orphan")
         )
@@ -181,11 +185,14 @@ class DColumn(Base):
     def _get_type(self):
         """ sqlalchemy type for the column """
 
-        kind = getattr(sqlalchemy, self.kind)
-        if self.kind == 'String' and self.length:
-            kind = kind(self.length)
-        if self.kind == 'Enum':
-            kind = kind(*self.choices)
+        if self.is_parent_relationship():
+            kind = Integer
+        else:
+            kind = getattr(sqlalchemy, self.kind)
+            if self.kind == 'String' and self.length:
+                kind = kind(self.length)
+            if self.kind == 'Enum':
+                kind = kind(*self.choices)
         return kind
 
     def _get_default(self):
@@ -222,7 +229,10 @@ class DColumn(Base):
         args = self._get_args()
         kind = self._get_type()
         if self.is_parent_relationship():
-            fkey = '%(collection)s__%(name)s.id' % self.relation
+            if 'external' in self.relation:
+                fkey = '%s.id' % self.relation['tablename']
+            else:
+                fkey = '%(collection)s__%(name)s.id' % self.relation
             return Column(self.get_name(), kind, ForeignKey(fkey), **args)
         else:
             return Column(self.get_name(), kind, **args)
